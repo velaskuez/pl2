@@ -1,0 +1,21 @@
+# compile_flags.txt is needed in the project to support relative paths here
+CompileFlags:
+    Add: [-I./include, -I./thirdparty/Unity, -Wall, -Wextra, -pedantic, -std=c23, -Wno-char-subscripts, -Wno-gnu-statement-expression-from-macro-expansion, -Wno-gnu-case-range]
+    Remove: [-Wempty-translation-unit]
+
+---
+
+If:
+  PathMatch: .*\.h
+
+CompileFlags:
+  Add: [-xc-header]
+
+---
+
+If:
+  PathMatch: .*\.c
+
+CompileFlags:
+  Add: [-xc]
+
