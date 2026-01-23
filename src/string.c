@@ -46,3 +46,9 @@ String string_from_cstr(char *s) {
     memcpy(t.items, s, t.len);
     return t;
 }
+
+int string_cstr_cmp(const String *s, char *t) {
+    if (strlen(t) != s->len) return -1;
+    if (strcmp(t, s->items) != 0) return -1;
+    return 0;
+}

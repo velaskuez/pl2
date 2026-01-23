@@ -12,3 +12,4 @@ typedef struct {
 
 String string_from_file(int);
 String string_from_cstr(char *);
+int string_cstr_cmp(const String *, char *);

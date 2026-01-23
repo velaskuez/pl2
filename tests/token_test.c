@@ -48,6 +48,7 @@ void test_collect(void) {
             "abcd\n"
             "'a'\n"
             "\"Hello, World!\"\n"
+            "fn\n"
     );
 
     Token want[] = {
@@ -74,6 +75,7 @@ void test_collect(void) {
         { .kind = TokenKindIdent, .value = string_from_cstr("abcd") },
         { .kind = TokenKindChar, .value = string_from_cstr("a") },
         { .kind = TokenKindString, .value = string_from_cstr("Hello, World!") },
+        { .kind = KeywordFn },
         { .kind = TokenKindEof },
     };
 

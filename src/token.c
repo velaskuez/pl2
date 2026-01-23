@@ -26,18 +26,7 @@ static char next_char(Tokeniser *self);
 static char peek_char(Tokeniser *self);
 static void skip_line(Tokeniser *self);
 static void extend_while(Tokeniser *self, String *str, int (condition)(char));
-static int is_keyword(const String *word);
-
-static char* keywords[] = {
-    "func",
-    "if",
-    "else",
-    "return",
-    "struct",
-    "while",
-    "sizeof",
-    "new",
-};
+static TokenKind check_keyword(const String *word);
 
 int token_collect(Tokeniser *self) {
     for (;;) {
@@ -115,7 +104,9 @@ int token_collect(Tokeniser *self) {
             String word = {0};
             extend_while(self, &word, isalphanumeric);
 
-            TokenKind kind = is_keyword(&word) ? TokenKindKeyword : TokenKindIdent;
+            TokenKind kind = check_keyword(&word);
+            if (!kind) kind = TokenKindIdent;
+
             create_token(self, kind, word);
             continue;
         default:
@@ -198,12 +189,17 @@ void extend_while(Tokeniser *self, String *str, int (condition)(char)) {
     }
 }
 
-int is_keyword(const String *word) {
-    for (size_t i = 0; i < sizeof(keywords)/sizeof(keywords[0]); i++) {
-        char *keyword = keywords[i];
-        if (strlen(keyword) != word->len) continue;
-        if (strcmp(keyword, word->items) == 0) return true;
-    }
+TokenKind check_keyword(const String *word) {
+    // string_lowercase(word);
 
-    return false;
+    if (string_cstr_cmp(word, KEYWORD_FN)) return KeywordFn;
+    if (string_cstr_cmp(word, KEYWORD_IF)) return KeywordIf;
+    if (string_cstr_cmp(word, KEYWORD_ELSE)) return KeywordElse;
+    if (string_cstr_cmp(word, KEYWORD_RETURN)) return KeywordReturn;
+    if (string_cstr_cmp(word, KEYWORD_STRUCT)) return KeywordStruct;
+    if (string_cstr_cmp(word, KEYWORD_WHILE)) return KeywordWhile;
+    if (string_cstr_cmp(word, KEYWORD_SIZEOF)) return KeywordSizeof;
+    if (string_cstr_cmp(word, KEYWORD_NEW)) return KeywordNew;
+
+    return 0;
 }

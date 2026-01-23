@@ -1,15 +1,33 @@
 #include "stdlib.h"
 #include "str.h"
 
+#define KEYWORD_FN "fn"
+#define KEYWORD_IF "if"
+#define KEYWORD_ELSE "else"
+#define KEYWORD_RETURN "return"
+#define KEYWORD_STRUCT "struct"
+#define KEYWORD_WHILE "while"
+#define KEYWORD_SIZEOF "sizeof"
+#define KEYWORD_NEW "new"
+
 typedef enum {
     // Literals
-    TokenKindChar,
+    TokenKindChar = 1,
     TokenKindNumber,
     TokenKindString,
 
     // Words
     TokenKindIdent,
-    TokenKindKeyword,
+
+    // Keywords
+    KeywordFn,
+    KeywordIf,
+    KeywordElse,
+    KeywordReturn,
+    KeywordStruct,
+    KeywordWhile,
+    KeywordSizeof,
+    KeywordNew,
 
     // Symbols
     TokenKindComma,
