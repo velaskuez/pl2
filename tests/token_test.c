@@ -1,5 +1,5 @@
 #include "unity.h"
-#include "tokeniser.h"
+#include "token.h"
 #include "str.h"
 #include <stdio.h>
 #include <string.h>
@@ -55,7 +55,7 @@ void test_collect(void) {
         { .kind = TokenKindDot },
         { .kind = TokenKindEqual },
         { .kind = TokenKindGt },
-        { .kind = TokenKindLBrace },
+        { .kind = TokenKindLCurly },
         { .kind = TokenKindLBrack },
         { .kind = TokenKindLParen },
         { .kind = TokenKindAmpersand },
@@ -64,7 +64,7 @@ void test_collect(void) {
         { .kind = TokenKindMinus },
         { .kind = TokenKindExclamation },
         { .kind = TokenKindPlus },
-        { .kind = TokenKindRBrace },
+        { .kind = TokenKindRCurly },
         { .kind = TokenKindRBrack },
         { .kind = TokenKindRParen },
         { .kind = TokenKindSemicolon },
@@ -74,11 +74,12 @@ void test_collect(void) {
         { .kind = TokenKindIdent, .value = string_from_cstr("abcd") },
         { .kind = TokenKindChar, .value = string_from_cstr("a") },
         { .kind = TokenKindString, .value = string_from_cstr("Hello, World!") },
+        { .kind = TokenKindEof },
     };
 
     Tokeniser tokeniser = {0};
     tokeniser.src = s;
-    int result = collect(&tokeniser);
+    int result = token_collect(&tokeniser);
 
     TEST_ASSERT_MESSAGE(result == 0, "collect failed");
     TEST_ASSERT_MESSAGE(tokeniser.tokens.len == sizeof(want)/sizeof(want[0]), "want.len != have.len");

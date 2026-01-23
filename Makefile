@@ -23,7 +23,7 @@ test: $(TEST_BINS)
 
 build/%: tests/%.c
 	@mkdir -p build
-	cc $(CFLAGS) src/string.c src/tokeniser.c thirdparty/Unity/unity.c $< -o $@
+	cc $(CFLAGS) src/string.c src/token.c thirdparty/Unity/unity.c $< -o $@
 
 build:
 	mkdir build

@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "tokeniser.h"
+#include "token.h"
 #include "array.h"
 #include "str.h"
 
@@ -39,9 +39,7 @@ static char* keywords[] = {
     "new",
 };
 
-#define EMPTY_STRING (String){0}
-
-int collect(Tokeniser *self) {
+int token_collect(Tokeniser *self) {
     for (;;) {
         char c = next_char(self);
         if (!c) break;
@@ -52,7 +50,7 @@ int collect(Tokeniser *self) {
         case '.': create_token(self, TokenKindDot, EMPTY_STRING); continue;
         case '=': create_token(self, TokenKindEqual, EMPTY_STRING); continue;
         case '>': create_token(self, TokenKindGt, EMPTY_STRING); continue;
-        case '{': create_token(self, TokenKindLBrace, EMPTY_STRING); continue;
+        case '{': create_token(self, TokenKindLCurly, EMPTY_STRING); continue;
         case '[': create_token(self, TokenKindRBrack, EMPTY_STRING); continue;
         case '(': create_token(self, TokenKindLParen, EMPTY_STRING); continue;
         case '&': create_token(self, TokenKindAmpersand, EMPTY_STRING); continue;
@@ -61,7 +59,7 @@ int collect(Tokeniser *self) {
         case '-': create_token(self, TokenKindMinus, EMPTY_STRING); continue;
         case '!': create_token(self, TokenKindExclamation, EMPTY_STRING); continue;
         case '+': create_token(self, TokenKindPlus, EMPTY_STRING); continue;
-        case '}': create_token(self, TokenKindRBrace, EMPTY_STRING); continue;
+        case '}': create_token(self, TokenKindRCurly, EMPTY_STRING); continue;
         case ']': create_token(self, TokenKindRBrack, EMPTY_STRING); continue;
         case ')': create_token(self, TokenKindRParen, EMPTY_STRING); continue;
         case ';': create_token(self, TokenKindSemicolon, EMPTY_STRING); continue;
@@ -124,6 +122,8 @@ int collect(Tokeniser *self) {
             return -1;
         }
     }
+
+    create_token(self, TokenKindEof, EMPTY_STRING);
 
     return 0;
 }

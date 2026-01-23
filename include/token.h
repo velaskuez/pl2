@@ -16,7 +16,7 @@ typedef enum {
     TokenKindDot,
     TokenKindEqual,
     TokenKindGt,
-    TokenKindLBrace,
+    TokenKindLCurly,
     TokenKindLBrack,
     TokenKindLParen,
     TokenKindAmpersand,
@@ -25,7 +25,7 @@ typedef enum {
     TokenKindMinus,
     TokenKindExclamation,
     TokenKindPlus,
-    TokenKindRBrace,
+    TokenKindRCurly,
     TokenKindRBrack,
     TokenKindRParen,
     TokenKindSemicolon,
@@ -58,4 +58,4 @@ typedef struct {
     Tokens tokens;
 } Tokeniser;
 
-int collect(Tokeniser *self);
+int token_collect(Tokeniser *self);
