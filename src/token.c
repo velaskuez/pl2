@@ -35,24 +35,24 @@ int token_collect(Tokeniser *self) {
         if (iswspace(c)) continue;
 
         switch (c) {
-        case ',': create_token(self, TokenKindComma, EMPTY_STRING); continue;
-        case '.': create_token(self, TokenKindDot, EMPTY_STRING); continue;
-        case '=': create_token(self, TokenKindEqual, EMPTY_STRING); continue;
-        case '>': create_token(self, TokenKindGt, EMPTY_STRING); continue;
-        case '{': create_token(self, TokenKindLCurly, EMPTY_STRING); continue;
-        case '[': create_token(self, TokenKindRBrack, EMPTY_STRING); continue;
-        case '(': create_token(self, TokenKindLParen, EMPTY_STRING); continue;
-        case '&': create_token(self, TokenKindAmpersand, EMPTY_STRING); continue;
-        case '|': create_token(self, TokenKindBar, EMPTY_STRING); continue;
-        case '<': create_token(self, TokenKindLt, EMPTY_STRING); continue;
-        case '-': create_token(self, TokenKindMinus, EMPTY_STRING); continue;
-        case '!': create_token(self, TokenKindExclamation, EMPTY_STRING); continue;
-        case '+': create_token(self, TokenKindPlus, EMPTY_STRING); continue;
-        case '}': create_token(self, TokenKindRCurly, EMPTY_STRING); continue;
-        case ']': create_token(self, TokenKindRBrack, EMPTY_STRING); continue;
-        case ')': create_token(self, TokenKindRParen, EMPTY_STRING); continue;
-        case ';': create_token(self, TokenKindSemicolon, EMPTY_STRING); continue;
-        case '*': create_token(self, TokenKindStar, EMPTY_STRING); continue;
+        case ',': create_token(self, TokenComma, EMPTY_STRING); continue;
+        case '.': create_token(self, TokenDot, EMPTY_STRING); continue;
+        case '=': create_token(self, TokenEqual, EMPTY_STRING); continue;
+        case '>': create_token(self, TokenGt, EMPTY_STRING); continue;
+        case '{': create_token(self, TokenLCurly, EMPTY_STRING); continue;
+        case '[': create_token(self, TokenRBrack, EMPTY_STRING); continue;
+        case '(': create_token(self, TokenLParen, EMPTY_STRING); continue;
+        case '&': create_token(self, TokenAmpersand, EMPTY_STRING); continue;
+        case '|': create_token(self, TokenBar, EMPTY_STRING); continue;
+        case '<': create_token(self, TokenLt, EMPTY_STRING); continue;
+        case '-': create_token(self, TokenMinus, EMPTY_STRING); continue;
+        case '!': create_token(self, TokenExclamation, EMPTY_STRING); continue;
+        case '+': create_token(self, TokenPlus, EMPTY_STRING); continue;
+        case '}': create_token(self, TokenRCurly, EMPTY_STRING); continue;
+        case ']': create_token(self, TokenRBrack, EMPTY_STRING); continue;
+        case ')': create_token(self, TokenRParen, EMPTY_STRING); continue;
+        case ';': create_token(self, TokenSemicolon, EMPTY_STRING); continue;
+        case '*': create_token(self, TokenStar, EMPTY_STRING); continue;
         case '/':
             // Skip comments
             c = peek_char(self);
@@ -61,14 +61,14 @@ int token_collect(Tokeniser *self) {
                 continue;
             }
 
-            create_token(self, TokenKindSlash, EMPTY_STRING);
+            create_token(self, TokenSlash, EMPTY_STRING);
             continue;
         case '0'...'9':
             String number = {0};
             append(&number, c);
             extend_while(self, &number, isnumber);
 
-            create_token(self, TokenKindNumber, number);
+            create_token(self, TokenNumber, number);
             continue;
         case '\'':
             String ch = {0};
@@ -85,7 +85,7 @@ int token_collect(Tokeniser *self) {
                 return -1;
             }
 
-            create_token(self, TokenKindChar, ch);
+            create_token(self, TokenChar, ch);
             continue;
 
         case '"':
@@ -97,7 +97,7 @@ int token_collect(Tokeniser *self) {
                 return -1;
             }
 
-            create_token(self, TokenKindString, str);
+            create_token(self, TokenString, str);
             continue;
         case 'A'...'Z':
         case 'a'...'z':
@@ -105,7 +105,7 @@ int token_collect(Tokeniser *self) {
             extend_while(self, &word, isalphanumeric);
 
             TokenKind kind = check_keyword(&word);
-            if (!kind) kind = TokenKindIdent;
+            if (!kind) kind = TokenIdent;
 
             create_token(self, kind, word);
             continue;
@@ -114,7 +114,7 @@ int token_collect(Tokeniser *self) {
         }
     }
 
-    create_token(self, TokenKindEof, EMPTY_STRING);
+    create_token(self, TokenEof, EMPTY_STRING);
 
     return 0;
 }
@@ -123,6 +123,7 @@ void create_token(Tokeniser *self, TokenKind kind, String value) {
     Token token = {0};
     token.kind = kind;
     token.value = value;
+    token.position = self->position;
     append(&self->tokens, token);
 }
 
@@ -190,8 +191,6 @@ void extend_while(Tokeniser *self, String *str, int (condition)(char)) {
 }
 
 TokenKind check_keyword(const String *word) {
-    // string_lowercase(word);
-
     if (string_cstr_cmp(word, KEYWORD_FN)) return KeywordFn;
     if (string_cstr_cmp(word, KEYWORD_IF)) return KeywordIf;
     if (string_cstr_cmp(word, KEYWORD_ELSE)) return KeywordElse;
@@ -200,6 +199,7 @@ TokenKind check_keyword(const String *word) {
     if (string_cstr_cmp(word, KEYWORD_WHILE)) return KeywordWhile;
     if (string_cstr_cmp(word, KEYWORD_SIZEOF)) return KeywordSizeof;
     if (string_cstr_cmp(word, KEYWORD_NEW)) return KeywordNew;
+    if (string_cstr_cmp(word, KEYWORD_LET)) return KeywordLet;
 
     return 0;
 }

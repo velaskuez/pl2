@@ -51,32 +51,33 @@ void test_collect(void) {
             "fn\n"
     );
 
+    // TODO: test positions
     Token want[] = {
-        { .kind = TokenKindComma },
-        { .kind = TokenKindDot },
-        { .kind = TokenKindEqual },
-        { .kind = TokenKindGt },
-        { .kind = TokenKindLCurly },
-        { .kind = TokenKindLBrack },
-        { .kind = TokenKindLParen },
-        { .kind = TokenKindAmpersand },
-        { .kind = TokenKindBar },
-        { .kind = TokenKindLt },
-        { .kind = TokenKindMinus },
-        { .kind = TokenKindExclamation },
-        { .kind = TokenKindPlus },
-        { .kind = TokenKindRCurly },
-        { .kind = TokenKindRBrack },
-        { .kind = TokenKindRParen },
-        { .kind = TokenKindSemicolon },
-        { .kind = TokenKindStar },
-        { .kind = TokenKindSlash },
-        { .kind = TokenKindNumber, .value = string_from_cstr("1234") },
-        { .kind = TokenKindIdent, .value = string_from_cstr("abcd") },
-        { .kind = TokenKindChar, .value = string_from_cstr("a") },
-        { .kind = TokenKindString, .value = string_from_cstr("Hello, World!") },
+        { .kind = TokenComma },
+        { .kind = TokenDot },
+        { .kind = TokenEqual },
+        { .kind = TokenGt },
+        { .kind = TokenLCurly },
+        { .kind = TokenLBrack },
+        { .kind = TokenLParen },
+        { .kind = TokenAmpersand },
+        { .kind = TokenBar },
+        { .kind = TokenLt },
+        { .kind = TokenMinus },
+        { .kind = TokenExclamation },
+        { .kind = TokenPlus },
+        { .kind = TokenRCurly },
+        { .kind = TokenRBrack },
+        { .kind = TokenRParen },
+        { .kind = TokenSemicolon },
+        { .kind = TokenStar },
+        { .kind = TokenSlash },
+        { .kind = TokenNumber, .value = string_from_cstr("1234") },
+        { .kind = TokenIdent, .value = string_from_cstr("abcd") },
+        { .kind = TokenChar, .value = string_from_cstr("a") },
+        { .kind = TokenString, .value = string_from_cstr("Hello, World!") },
         { .kind = KeywordFn },
-        { .kind = TokenKindEof },
+        { .kind = TokenEof },
     };
 
     Tokeniser tokeniser = {0};
@@ -86,6 +87,8 @@ void test_collect(void) {
     TEST_ASSERT_MESSAGE(result == 0, "collect failed");
     TEST_ASSERT_MESSAGE(tokeniser.tokens.len == sizeof(want)/sizeof(want[0]), "want.len != have.len");
     TEST_ASSERT_MESSAGE(compare_tokens(&tokeniser.tokens, want), "want != have");
+    TEST_ASSERT_MESSAGE(tokeniser.position.col == 0, "want != tokeniser.position.col");
+    TEST_ASSERT_MESSAGE(tokeniser.position.line == 7, "want != tokeniser.position.line");
 }
 
 int main(void) {

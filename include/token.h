@@ -1,3 +1,5 @@
+#pragma once
+
 #include "stdlib.h"
 #include "str.h"
 
@@ -9,15 +11,21 @@
 #define KEYWORD_WHILE "while"
 #define KEYWORD_SIZEOF "sizeof"
 #define KEYWORD_NEW "new"
+#define KEYWORD_LET "let"
+
+typedef struct {
+    int line;
+    int col;
+} Position;
 
 typedef enum {
     // Literals
-    TokenKindChar = 1,
-    TokenKindNumber,
-    TokenKindString,
+    TokenChar = 1,
+    TokenNumber,
+    TokenString,
 
     // Words
-    TokenKindIdent,
+    TokenIdent,
 
     // Keywords
     KeywordFn,
@@ -28,40 +36,37 @@ typedef enum {
     KeywordWhile,
     KeywordSizeof,
     KeywordNew,
+    KeywordLet,
 
     // Symbols
-    TokenKindComma,
-    TokenKindDot,
-    TokenKindEqual,
-    TokenKindGt,
-    TokenKindLCurly,
-    TokenKindLBrack,
-    TokenKindLParen,
-    TokenKindAmpersand,
-    TokenKindBar,
-    TokenKindLt,
-    TokenKindMinus,
-    TokenKindExclamation,
-    TokenKindPlus,
-    TokenKindRCurly,
-    TokenKindRBrack,
-    TokenKindRParen,
-    TokenKindSemicolon,
-    TokenKindSlash,
-    TokenKindStar,
+    TokenComma,
+    TokenDot,
+    TokenEqual,
+    TokenGt,
+    TokenLCurly,
+    TokenLBrack,
+    TokenLParen,
+    TokenAmpersand,
+    TokenBar,
+    TokenLt,
+    TokenMinus,
+    TokenExclamation,
+    TokenPlus,
+    TokenRCurly,
+    TokenRBrack,
+    TokenRParen,
+    TokenSemicolon,
+    TokenSlash,
+    TokenStar,
 
-    TokenKindEof,
+    TokenEof,
 } TokenKind;
 
 typedef struct {
     TokenKind kind;
     String value;
+    Position position;
 } Token;
-
-typedef struct {
-    int line;
-    int col;
-} Position;
 
 typedef struct {
     size_t len;

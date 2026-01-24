@@ -3,10 +3,14 @@
 #include <stdlib.h>
 
 typedef struct {
-    size_t len;
-    size_t cap;
+    size_t len, cap;
     char *items;
 } String;
+
+typedef struct {
+    size_t len, cap;
+    String *items;
+} Strings;
 
 #define EMPTY_STRING (String){0}
 
