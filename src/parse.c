@@ -58,8 +58,11 @@ static int eat(Parser *self, TokenKind want);
 static Token expect(Parser *self, TokenKind want);
 static int eof(Parser *self);
 
-static AstStruct parse_struct(Parser *self);
-
+static AstValue parse_value(Parser *self);
+static AstCall parse_call(Parser *self);
+static Strings parse_compound_ident(Parser *self);
+static AstExpr parse_prefix_expr(Parser *self);
+static BinaryOp parse_binary_op(Parser *self);
 static AstExpr parse_expr(Parser *self, int prec);
 static AstType parse_type(Parser *self);
 static AstParam parse_param(Parser *self);
@@ -72,6 +75,7 @@ static AstStatement parse_statement(Parser *self);
 static AstStatements parse_statements(Parser *self);
 static AstBlock parse_block(Parser *self);
 static AstFunction parse_function(Parser *self);
+static AstStruct parse_struct(Parser *self);
 
 AstFile parse(Parser *self) {
     AstFile file = {};
@@ -84,7 +88,7 @@ AstFile parse(Parser *self) {
             AstStruct struct_ = parse_struct(self);
             append(file.structs, struct_);
         } else {
-            // unexpected token
+            TODO("handle unexpected token");
             break;
         }
     }
@@ -417,4 +421,25 @@ AstFunction parse_function(Parser *self) {
     function.block = parse_block(self);
 
     return function;
+}
+
+AstStruct parse_struct(Parser *self) {
+    AstStruct struct_ = {0};
+
+    expect(self, KeywordStruct);
+    struct_.name = expect(self, TokenIdent).value;
+
+    expect(self, TokenLCurly);
+
+    while (!eof(self)) {
+        AstParam param = parse_param(self);
+        append(&struct_.fields, param);
+        expect(self, TokenSemicolon);
+
+        if (at(self, TokenRCurly)) break;
+    }
+
+    expect(self, TokenRCurly);
+
+    return struct_;
 }

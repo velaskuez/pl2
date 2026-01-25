@@ -28,6 +28,7 @@ typedef struct {
 } AstParams;
 
 typedef struct {
+    String name;
     AstParams fields;
 } AstStruct;
 
