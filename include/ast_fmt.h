@@ -1,0 +1,9 @@
+#pragma once
+
+#include "ast.h"
+#include "writer.h"
+
+void ast_fmt_file(const AstFile *file, Writer *output);
+void ast_fmt_struct(const AstStruct *file, Writer *output, int indent);
+void ast_fmt_function(const AstFunction *file, Writer *output, int indent);
+void ast_fmt_param(const AstParam *param, Writer *output, int indent);

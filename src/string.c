@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "array.h"
 #include "str.h"
 
 String string_from_file(int fd) {
@@ -51,4 +52,16 @@ int string_cstr_cmp(const String *s, char *t) {
     if (strlen(t) != s->len) return -1;
     if (strcmp(t, s->items) != 0) return -1;
     return 0;
+}
+
+void string_append_cstr(String *s, const char *t) {
+    for (const char *c = t; *c; c++) {
+        append(s, *c)
+    }
+}
+
+void string_append_string(String *s, const String *t) {
+    foreach (c, t) {
+        append(s, *c)
+    }
 }

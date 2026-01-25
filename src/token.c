@@ -102,6 +102,7 @@ int token_collect(Tokeniser *self) {
         case 'A'...'Z':
         case 'a'...'z':
             String word = {0};
+            append(&word, c);
             extend_while(self, &word, isalphanumeric);
 
             TokenKind kind = check_keyword(&word);
@@ -191,15 +192,15 @@ void extend_while(Tokeniser *self, String *str, int (condition)(char)) {
 }
 
 TokenKind check_keyword(const String *word) {
-    if (string_cstr_cmp(word, KEYWORD_FN)) return KeywordFn;
-    if (string_cstr_cmp(word, KEYWORD_IF)) return KeywordIf;
-    if (string_cstr_cmp(word, KEYWORD_ELSE)) return KeywordElse;
-    if (string_cstr_cmp(word, KEYWORD_RETURN)) return KeywordReturn;
-    if (string_cstr_cmp(word, KEYWORD_STRUCT)) return KeywordStruct;
-    if (string_cstr_cmp(word, KEYWORD_WHILE)) return KeywordWhile;
-    if (string_cstr_cmp(word, KEYWORD_SIZEOF)) return KeywordSizeof;
-    if (string_cstr_cmp(word, KEYWORD_NEW)) return KeywordNew;
-    if (string_cstr_cmp(word, KEYWORD_LET)) return KeywordLet;
+    if (string_cstr_cmp(word, KEYWORD_FN) == 0) return KeywordFn;
+    if (string_cstr_cmp(word, KEYWORD_IF) == 0) return KeywordIf;
+    if (string_cstr_cmp(word, KEYWORD_ELSE) == 0) return KeywordElse;
+    if (string_cstr_cmp(word, KEYWORD_RETURN) == 0) return KeywordReturn;
+    if (string_cstr_cmp(word, KEYWORD_STRUCT) == 0) return KeywordStruct;
+    if (string_cstr_cmp(word, KEYWORD_WHILE) == 0) return KeywordWhile;
+    if (string_cstr_cmp(word, KEYWORD_SIZEOF) == 0) return KeywordSizeof;
+    if (string_cstr_cmp(word, KEYWORD_NEW) == 0) return KeywordNew;
+    if (string_cstr_cmp(word, KEYWORD_LET) == 0) return KeywordLet;
 
     return 0;
 }

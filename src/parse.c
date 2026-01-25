@@ -5,20 +5,7 @@
 #include "array.h"
 #include "token.h"
 #include "ast.h"
-
-#define box(data) ({                           \
-    auto value = data;                         \
-    void *allocation = malloc(sizeof(value));  \
-    memcpy(allocation, &value, sizeof(value)); \
-    allocation;                                \
-})
-
-#define panic(msg, ...) \
-    fprintf(stderr, "%s:%d: "msg"\n", __FILE__, __LINE__, __VA_ARGS__); \
-    exit(1)
-
-#define TODO(msg) \
-    panic("%s: "msg, "TODO")
+#include "util.h"
 
 static int infix_prec[] = {
     [BinaryOpIndex] = 10,
@@ -77,18 +64,18 @@ static AstBlock parse_block(Parser *self);
 static AstFunction parse_function(Parser *self);
 static AstStruct parse_struct(Parser *self);
 
-AstFile parse(Parser *self) {
-    AstFile file = {};
+AstFile parse_file(Parser *self) {
+    AstFile file = {0};
 
     while (!eof(self)) {
         if (at(self, KeywordFn)) {
             AstFunction function = parse_function(self);
-            append(file.functions, function);
+            append(&file.functions, function);
         } else if (at(self, KeywordStruct)) {
             AstStruct struct_ = parse_struct(self);
-            append(file.structs, struct_);
+            append(&file.structs, struct_);
         } else {
-            TODO("handle unexpected token");
+            panic("unexpected token: %d", current(self).kind);
             break;
         }
     }

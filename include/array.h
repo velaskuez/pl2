@@ -40,3 +40,9 @@
         free((array)->items);                                                                      \
         (array)->items = nullptr;                                                                  \
     }\
+
+#define foreach(item, array) \
+    for (auto item = (array)->items; item < (array)->items + (array)->len; item++)
+
+#define upto(len) \
+    for (auto i = 0; i < len; i++)

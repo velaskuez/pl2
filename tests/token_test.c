@@ -42,6 +42,7 @@ void tearDown(void) {
 
 void test_collect(void) {
     String s = string_from_cstr(
+            "struct\n"
             ",.=>{[(&|<-!+}]);*/\n"
             "// This is a comment\n"
             "1234\n"
@@ -53,6 +54,7 @@ void test_collect(void) {
 
     // TODO: test positions
     Token want[] = {
+        { .kind = KeywordStruct },
         { .kind = TokenComma },
         { .kind = TokenDot },
         { .kind = TokenEqual },
@@ -88,7 +90,7 @@ void test_collect(void) {
     TEST_ASSERT_MESSAGE(tokeniser.tokens.len == sizeof(want)/sizeof(want[0]), "want.len != have.len");
     TEST_ASSERT_MESSAGE(compare_tokens(&tokeniser.tokens, want), "want != have");
     TEST_ASSERT_MESSAGE(tokeniser.position.col == 0, "want != tokeniser.position.col");
-    TEST_ASSERT_MESSAGE(tokeniser.position.line == 7, "want != tokeniser.position.line");
+    TEST_ASSERT_MESSAGE(tokeniser.position.line == 8, "want != tokeniser.position.line");
 }
 
 int main(void) {

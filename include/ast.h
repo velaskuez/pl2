@@ -1,3 +1,5 @@
+#pragma once
+
 #include "str.h"
 #include "token.h"
 
@@ -179,8 +181,8 @@ typedef struct {
 } AstFunctions;
 
 typedef struct {
-    AstStructs *structs;
-    AstFunctions *functions;
+    AstStructs structs;
+    AstFunctions functions;
 } AstFile;
 
-AstFile parse(Parser *self);
+AstFile parse_file(Parser *self);
