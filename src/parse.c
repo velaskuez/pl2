@@ -1,5 +1,3 @@
-#include <_string.h>
-#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,6 +12,44 @@
     memcpy(allocation, &value, sizeof(value)); \
     allocation;                                \
 })
+
+#define panic(msg, ...) \
+    fprintf(stderr, "%s:%d: "msg"\n", __FILE__, __LINE__, __VA_ARGS__); \
+    exit(1)
+
+#define TODO(msg) \
+    panic("%s: "msg, "TODO")
+
+static int infix_prec[] = {
+    [BinaryOpIndex] = 10,
+    [BinaryOpOr] = 20,
+    [BinaryOpAnd] = 30,
+    [BinaryOpBitOr] = 31,
+    [BinaryOpBitAnd] = 33,
+    [BinaryOpEq] = 40,
+    [BinaryOpNeq] = 40,
+    [BinaryOpLt] = 80,
+    [BinaryOpLe] = 80,
+    [BinaryOpGt] = 80,
+    [BinaryOpGe] = 80,
+    [BinaryOpAdd] = 90,
+    [BinaryOpSub] = 90,
+    [BinaryOpMul] = 100,
+    [BinaryOpDiv] = 100,
+};
+
+static int prefix_prec[] = {
+    [UnaryOpSizeOf] = 200,
+};
+
+static AstExpr make_binary_op(AstExpr lhs, BinaryOp op, AstExpr rhs) {
+    AstExpr expr = {0};
+    expr.kind = ExprBinaryOp;
+    expr.as.binary_op.left = box(lhs);
+    expr.as.binary_op.op = op;
+    expr.as.binary_op.right = box(rhs);
+    return expr;
+}
 
 static Token nth(Parser *self, size_t n);
 static Token current(Parser *self);
@@ -49,6 +85,7 @@ AstFile parse(Parser *self) {
             append(file.structs, struct_);
         } else {
             // unexpected token
+            break;
         }
     }
 
@@ -107,7 +144,7 @@ AstValue parse_value(Parser *self) {
         String number = expect(self, TokenNumber).value;
         value.as.number = strtoll(number.items, nullptr, 10);
     } else {
-        // TODO
+        TODO("handle unexpected value");
     }
 
     return value;
@@ -141,12 +178,16 @@ Strings parse_compound_ident(Parser *self) {
     return idents;
 }
 
-AstExpr parse_prefix(Parser *self) {
+AstExpr parse_prefix_expr(Parser *self) {
     AstExpr expr = {0};
 
     if (eat(self, TokenLParen)) {
         expr = parse_expr(self, 0);
         expect(self, TokenRParen);
+    } else if (eat(self, KeywordSizeof)) {
+        expr.kind = ExprUnaryOp;
+        expr.as.unary_op.op = UnaryOpSizeOf;
+        expr.as.unary_op.expr = box(parse_expr(self, prefix_prec[UnaryOpSizeOf]));
     } else if (at(self, TokenString) || at(self, TokenChar) || at(self, TokenNumber)) {
         expr.kind = ExprValue;
         expr.as.value = parse_value(self);
@@ -160,15 +201,66 @@ AstExpr parse_prefix(Parser *self) {
         expr.kind = ExprIdent;
         expr.as.ident = expect(self, TokenIdent).value;
     } else {
-        // TODO
+        TODO("handle unexpected expr prefix");
     }
 
     return expr;
 }
 
-AstExpr parse_expr(Parser *self, int prec) {
-    AstExpr expr = {0};
+BinaryOp parse_binary_op(Parser *self) {
+    if (eat(self, TokenEqual)) {
+        expect(self, TokenEqual);
+        return BinaryOpEq;
+    } else if (eat(self, TokenExclamation)) {
+        expect(self, TokenEqual);
+        return BinaryOpNeq;
+    } else if (eat(self, TokenLt)) {
+        if (eat(self, TokenEqual)) return BinaryOpLe;
+        return BinaryOpLt;
+    } else if (eat(self, TokenGt)) {
+        if (eat(self, TokenEqual)) return BinaryOpGe;
+        return BinaryOpGe;
+    } else if (eat(self, TokenAmpersand)) {
+        if (eat(self, TokenAmpersand)) return BinaryOpAnd;
+        return BinaryOpBitAnd;
+    } else if (eat(self, TokenBar)) {
+        if (eat(self, TokenBar)) return BinaryOpOr;
+        return BinaryOpBitOr;
+    } else if (eat(self, TokenLBrack)) {
+        return BinaryOpIndex;
+    } else if (eat(self, TokenPlus)) {
+        return BinaryOpAdd;
+    } else if (eat(self, TokenMinus)) {
+        return BinaryOpSub;
+    } else if (eat(self, TokenSlash)) {
+        return BinaryOpDiv;
+    } else if (eat(self, TokenStar)) {
+        return BinaryOpDiv;
+    }
 
+    return 0;
+}
+
+AstExpr parse_expr(Parser *self, int prec) {
+    AstExpr expr = parse_prefix_expr(self);
+
+    for (;;) {
+        BinaryOp op;
+        int position = self->position;
+        if (!(op = parse_binary_op(self))) break;
+
+        int nprec = infix_prec[op];
+        if (prec >= nprec) {
+            self->position = position;
+            break;
+        }
+
+        AstExpr rhs = parse_expr(self, nprec);
+        expr = make_binary_op(expr, op, rhs);
+        if (op == BinaryOpIndex) expect(self, TokenRBrack);
+    }
+
+    return expr;
 }
 
 AstType parse_type(Parser *self) {
@@ -278,8 +370,7 @@ AstStatement parse_statement(Parser *self) {
         } else if (next_token == TokenLBrack) {
             // parse_lvalue -> ident || ident[expr]; return lvalue, eat(Equal);
         } else goto expr;
-    } else {
-expr:
+    } else { expr:
         statement.kind = StatementExpr;
         statement.as.expr = parse_expr(self, 0);
     }

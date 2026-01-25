@@ -32,12 +32,13 @@ typedef struct {
 } AstStruct;
 
 typedef enum {
-    BinaryOpEq,
+    BinaryOpEq = 1,
+    BinaryOpNeq,
     BinaryOpLt,
     BinaryOpLe,
     BinaryOpGt,
     BinaryOpGe,
-    BinaryOpPlus,
+    BinaryOpAdd,
     BinaryOpSub,
     BinaryOpMul,
     BinaryOpDiv,
@@ -45,6 +46,7 @@ typedef enum {
     BinaryOpOr,
     BinaryOpBitAnd,
     BinaryOpBitOr,
+    BinaryOpIndex,
 } BinaryOp;
 
 typedef enum {
@@ -100,8 +102,8 @@ typedef struct {
 struct AstExpr{
     ExprKind kind;
     union {
-        AstBinaryOp binop;
-        AstUnaryOp unop;
+        AstBinaryOp binary_op;
+        AstUnaryOp unary_op;
         AstValue value;
         String ident;
         Strings compound_ident;
