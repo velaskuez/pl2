@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -ex
+
 ensure_dir() {
     if [[ ! -e "$1" ]]; then
         echo "Setting up $1" >&2

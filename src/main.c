@@ -29,7 +29,7 @@ int main() {
     AstFile file = parse_file(&parser);
 
     String ast = {0};
-    Writer writer = make_ast_fmt_string_output(&ast);
+    Writer writer = make_string_writer(&ast);
     ast_fmt_file(&file, &writer);
 
     printf("%.*s", (int)ast.len, ast.items);
