@@ -19,18 +19,13 @@ int main() {
     String src = string_from_file(fd);
     Tokeniser tokeniser = {0};
     tokeniser.src = src;
-    int res;
-    if ((res = token_collect(&tokeniser)) < 0) {
-        panic("could not collect tokens: %d", res);
+    if (token_collect(&tokeniser) < 0) {
+        panic("%d:%d: unexpected token", tokeniser.position.line, tokeniser.position.col);
     }
 
     Parser parser = {0};
     parser.tokens = tokeniser.tokens;
     AstFile file = parse_file(&parser);
 
-    String ast = {0};
-    Writer writer = make_string_writer(&ast);
-    ast_fmt_file(&file, &writer);
-
-    printf("%.*s", (int)ast.len, ast.items);
+    ast_fmt_file(&file, &printf_writer);
 }

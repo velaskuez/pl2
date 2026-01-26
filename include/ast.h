@@ -161,7 +161,7 @@ struct AstStatement {
 typedef struct {
     String name;
     AstParams params;
-    AstType return_type;
+    AstType *return_type;
     AstBlock block;
 } AstFunction;
 

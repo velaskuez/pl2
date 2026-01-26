@@ -372,7 +372,7 @@ AstStatement parse_statement(Parser *self) {
 AstStatements parse_statements(Parser *self) {
     AstStatements statements = {0};
 
-    while (!eof(self)) {
+    while (!eof(self) && !at(self, TokenRCurly)) {
         AstStatement statement = parse_statement(self);
         append(&statements, statement);
         expect(self, TokenSemicolon);
@@ -402,7 +402,7 @@ AstFunction parse_function(Parser *self) {
 
 
     if (at(self, TokenIdent)) {
-        function.return_type = parse_type(self);
+        function.return_type = box(parse_type(self));
     }
 
     function.block = parse_block(self);

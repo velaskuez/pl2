@@ -14,11 +14,13 @@ static void writer_append_indent(Writer *writer, int indent) {
 void ast_fmt_file(const AstFile *file, Writer *writer) {
     foreach(struct_, &file->structs) {
         ast_fmt_struct(struct_, writer, 0);
+        writer_append_cstr(writer, "\n");
     }
 
-    // foreach(function, file->functions) {
-    //     ast_fmt_function(function, writer, 0);
-    // }
+    foreach(function, &file->functions) {
+        ast_fmt_function(function, writer, 0);
+        writer_append_cstr(writer, "\n");
+    }
 }
 
 void ast_fmt_struct(const AstStruct *struct_, Writer *writer, int indent) {
@@ -34,9 +36,38 @@ void ast_fmt_struct(const AstStruct *struct_, Writer *writer, int indent) {
     writer_append_cstr(writer, "}\n");
 }
 
+void ast_fmt_type(const AstType *type, Writer *writer) {
+    if (type->pointer) writer_append_cstr(writer, "*");
+    writer_append_string(writer, &type->name);
+}
+
 void ast_fmt_param(const AstParam *param, Writer *writer, int indent) {
     writer_append_indent(writer, indent);
     writer_append_string(writer, &param->name);
     writer_append_cstr(writer, " ");
-    writer_append_string(writer, &param->type.name);
+    ast_fmt_type(&param->type, writer);
 }
+
+void ast_fmt_function(const AstFunction *function, Writer *writer, int indent) {
+    writer_append_indent(writer, indent);
+    writer_append_cstr(writer, "fn ");
+    writer_append_string(writer, &function->name);
+
+    char *sep = "";
+    writer_append_cstr(writer, "(");
+    foreach(param, &function->params) {
+        writer_append_cstr(writer, sep);
+        ast_fmt_param(param, writer, 0);
+        sep = ", ";
+    }
+    writer_append_cstr(writer, ")");
+
+    if (function->return_type != nullptr) {
+        writer_append_cstr(writer, " ");
+        ast_fmt_type(function->return_type, writer);
+    }
+
+    ast_fmt_block(&function->block, writer, indent);
+}
+
+void ast_fmt_block(const AstBlock *block, Writer *output, int indent) {}
