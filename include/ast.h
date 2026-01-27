@@ -152,7 +152,7 @@ struct AstStatement {
         AstAssign assign;
         AstLet let;
         AstExpr expr;
-        AstExpr return_;
+        AstExpr *return_;
         AstIf if_;
         AstWhile while_;
     } as;

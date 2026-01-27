@@ -57,7 +57,7 @@ static AstParams parse_params(Parser *self);
 static AstLet parse_let(Parser *self);
 static AstIf parse_if(Parser *self);
 static AstWhile parse_while(Parser *self);
-static AstExpr parse_return(Parser *self);
+static AstExpr *parse_return(Parser *self);
 static AstStatement parse_statement(Parser *self);
 static AstStatements parse_statements(Parser *self);
 static AstBlock parse_block(Parser *self);
@@ -330,12 +330,14 @@ AstWhile parse_while(Parser *self) {
     return while_;
 }
 
-AstExpr parse_return(Parser *self) {
-    AstExpr expr = {0};
+AstExpr *parse_return(Parser *self) {
     expect(self, KeywordReturn);
-    expr = parse_expr(self, 0);
 
-    return expr;
+    if (!at(self, TokenSemicolon)) {
+        return box(parse_expr(self, 0));
+    }
+
+    return nullptr;
 }
 
 AstStatement parse_statement(Parser *self) {

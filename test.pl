@@ -4,4 +4,5 @@ struct MyStruct {
 }
 
 fn myfn(a int, b string) void {
+    return;
 }
