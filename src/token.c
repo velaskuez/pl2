@@ -40,7 +40,7 @@ int token_collect(Tokeniser *self) {
         case '=': create_token(self, TokenEqual, EMPTY_STRING); continue;
         case '>': create_token(self, TokenGt, EMPTY_STRING); continue;
         case '{': create_token(self, TokenLCurly, EMPTY_STRING); continue;
-        case '[': create_token(self, TokenRBrack, EMPTY_STRING); continue;
+        case '[': create_token(self, TokenLBrack, EMPTY_STRING); continue;
         case '(': create_token(self, TokenLParen, EMPTY_STRING); continue;
         case '&': create_token(self, TokenAmpersand, EMPTY_STRING); continue;
         case '|': create_token(self, TokenBar, EMPTY_STRING); continue;

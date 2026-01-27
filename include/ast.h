@@ -52,9 +52,13 @@ typedef enum {
     BinaryOpIndex,
 } BinaryOp;
 
+char *binary_op_str[BinaryOpIndex+1];
+
 typedef enum {
     UnaryOpSizeOf,
 } UnaryOp;
+
+char *unary_op_str[UnaryOpSizeOf+1];
 
 typedef struct AstExpr AstExpr;
 typedef enum {

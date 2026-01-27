@@ -64,6 +64,28 @@ static AstBlock parse_block(Parser *self);
 static AstFunction parse_function(Parser *self);
 static AstStruct parse_struct(Parser *self);
 
+char *binary_op_str[] = {
+    [BinaryOpEq] = "=",
+    [BinaryOpNeq] = "!=",
+    [BinaryOpLt] = "<",
+    [BinaryOpLe] = "<=",
+    [BinaryOpGt] = ">",
+    [BinaryOpGe] = ">=",
+    [BinaryOpAdd] = "+",
+    [BinaryOpSub] = "-",
+    [BinaryOpMul] = "*",
+    [BinaryOpDiv] = "/",
+    [BinaryOpAnd] = "&&",
+    [BinaryOpOr] = "||",
+    [BinaryOpBitAnd] = "&",
+    [BinaryOpBitOr] = "|",
+    [BinaryOpIndex] = "[]",
+};
+
+char * unary_op_str[] = {
+    [UnaryOpSizeOf] = "sizeof",
+};
+
 AstFile parse_file(Parser *self) {
     AstFile file = {0};
 
@@ -113,7 +135,9 @@ Token expect(Parser *self, TokenKind want) {
     }
 
     // TODO
-    fprintf(stderr, "unexpected token: %d, want: %d", current(self).kind, want);
+    Token have = current(self);
+    fprintf(stderr, "%d:%d unexpected token: %d, want: %d",
+            have.position.line, have.position.col, have.kind, want);
     exit(1);
 }
 
@@ -226,7 +250,7 @@ BinaryOp parse_binary_op(Parser *self) {
     } else if (eat(self, TokenSlash)) {
         return BinaryOpDiv;
     } else if (eat(self, TokenStar)) {
-        return BinaryOpDiv;
+        return BinaryOpMul;
     }
 
     return 0;

@@ -82,12 +82,25 @@ void ast_fmt_block(Writer *writer, const AstBlock *block, int indent) {
 
 void ast_fmt_statement(Writer *writer, const AstStatement *statement, int indent) {
     switch (statement->kind) {
-        case StatementReturn:
-            ast_fmt_statement_return(writer, statement->as.return_, indent);
-            break;
-        default:
-            TODO("implement formatting for other statements");
-            break;
+    case StatementReturn:
+        ast_fmt_statement_return(writer, statement->as.return_, indent);
+        break;
+    case StatementAssign:
+        writer_append_cstr(writer, "TODO assign");
+        break;
+    case StatementLet:
+        writer_append_cstr(writer, "TODO let");
+        break;
+    case StatementExpr:
+        writer_append_cstr(writer, "TODO expr");
+        break;
+    case StatementIf:
+        writer_append_cstr(writer, "TODO if");
+        break;
+    case StatementWhile:
+        writer_append_cstr(writer, "TODO while");
+        break;
+    break;
     }
 
     writer_append_cstr(writer, ";");
@@ -104,5 +117,62 @@ void ast_fmt_statement_return(Writer *writer, const AstExpr *expr, int indent) {
 }
 
 void ast_fmt_expr(Writer *writer, const AstExpr *expr, int indent) {
-    writer_append_cstr(writer, "TODO: expr");
+    writer_append_indent(writer, indent);
+
+    switch (expr->kind) {
+    case ExprBinaryOp:
+        ast_fmt_binary_op(writer, &expr->as.binary_op);
+        break;
+    case ExprUnaryOp:
+        break;
+    case ExprValue:
+        ast_fmt_value(writer, &expr->as.value);
+        break;
+    case ExprIdent:
+        break;
+    case ExprCompoundIdent:
+        break;
+    case ExprCall:
+        break;
+    }
+}
+
+void ast_fmt_value(Writer *writer, const AstValue *value) {
+    switch (value->kind) {
+    case ValueString:
+        writer_append_cstr(writer, "\"");
+        writer_append_string(writer, &value->as.string);
+        writer_append_cstr(writer, "\"");
+        break;
+    case ValueChar:
+        char *str = nullptr;
+        asprintf(&str, "'%c'", (wchar_t)value->as.char_);
+        writer_append_cstr(writer, str);
+        free(str);
+        break;
+    case ValueNumber:
+        char *num = nullptr;
+        asprintf(&num, "%ld", value->as.number);
+        writer_append_cstr(writer, num);
+        free(num);
+        break;
+    }
+}
+
+void ast_fmt_binary_op(Writer *writer, const AstBinaryOp *binary_op) {
+    ast_fmt_expr(writer, binary_op->left, 0);
+
+    if (binary_op->op == BinaryOpIndex) {
+        writer_append_cstr(writer, "[");
+    } else {
+        writer_append_cstr(writer, " ");
+        writer_append_cstr(writer, binary_op_str[binary_op->op]);
+        writer_append_cstr(writer, " ");
+    }
+
+    ast_fmt_expr(writer, binary_op->right, 0);
+
+    if (binary_op->op == BinaryOpIndex) {
+        writer_append_cstr(writer, "]");
+    }
 }
