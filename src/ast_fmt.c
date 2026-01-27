@@ -74,8 +74,11 @@ void ast_fmt_function(Writer *writer, const AstFunction *function, int indent) {
 
 void ast_fmt_block(Writer *writer, const AstBlock *block, int indent) {
     writer_append_cstr(writer, "{\n");
+    char *sep = "";
     foreach(statement, &block->statements) {
+        writer_append_cstr(writer, sep);
         ast_fmt_statement(writer, statement, indent);
+        sep = "\n";
     }
     writer_append_cstr(writer, "\n}");
 }
@@ -92,7 +95,7 @@ void ast_fmt_statement(Writer *writer, const AstStatement *statement, int indent
         writer_append_cstr(writer, "TODO let");
         break;
     case StatementExpr:
-        writer_append_cstr(writer, "TODO expr");
+        ast_fmt_expr(writer, &statement->as.expr, indent);
         break;
     case StatementIf:
         writer_append_cstr(writer, "TODO if");
@@ -124,15 +127,19 @@ void ast_fmt_expr(Writer *writer, const AstExpr *expr, int indent) {
         ast_fmt_binary_op(writer, &expr->as.binary_op);
         break;
     case ExprUnaryOp:
+        ast_fmt_unary_op(writer, &expr->as.unary_op);
         break;
     case ExprValue:
         ast_fmt_value(writer, &expr->as.value);
         break;
     case ExprIdent:
+        writer_append_string(writer, &expr->as.ident);
         break;
     case ExprCompoundIdent:
+        ast_fmt_compound_ident(writer, &expr->as.compound_ident);
         break;
     case ExprCall:
+        ast_fmt_call(writer, &expr->as.call);
         break;
     }
 }
@@ -175,4 +182,33 @@ void ast_fmt_binary_op(Writer *writer, const AstBinaryOp *binary_op) {
     if (binary_op->op == BinaryOpIndex) {
         writer_append_cstr(writer, "]");
     }
+}
+
+void ast_fmt_unary_op(Writer *writer, const AstUnaryOp *unary_op) {
+    writer_append_cstr(writer, unary_op_str[unary_op->op]);
+    writer_append_cstr(writer, "(");
+    ast_fmt_expr(writer, unary_op->expr, 0);
+    writer_append_cstr(writer, ")");
+}
+
+void ast_fmt_compound_ident(Writer *writer, const Strings *idents) {
+    char *sep = "";
+    foreach(ident, idents) {
+        writer_append_cstr(writer, sep);
+        writer_append_string(writer, ident);
+        sep = ".";
+    }
+}
+
+void ast_fmt_call(Writer *writer, const AstCall *call) {
+    writer_append_string(writer, &call->name);
+
+    char *sep = "";
+    writer_append_cstr(writer, "(");
+    foreach(arg, &call->args) {
+        writer_append_cstr(writer, sep);
+        ast_fmt_expr(writer, arg, 0);
+        sep = ", ";
+    }
+    writer_append_cstr(writer, ")");
 }

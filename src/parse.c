@@ -168,14 +168,15 @@ AstValue parse_value(Parser *self) {
 AstCall parse_call(Parser *self) {
     AstCall call = {0};
 
+
     call.name = expect(self, TokenIdent).value;
 
-    while (!at(self, TokenLParen) && !eof(self)) {
+    expect(self, TokenLParen);
+    while (!at(self, TokenRParen) && !eof(self)) {
         AstExpr arg = parse_expr(self, 0);
         append(&call.args, arg);
-        if (at(self, TokenComma)) break;
+        if (!eat(self, TokenComma)) break;
     }
-
     expect(self, TokenRParen);
 
     return call;
@@ -216,7 +217,9 @@ AstExpr parse_prefix_expr(Parser *self) {
         expr.kind = ExprIdent;
         expr.as.ident = expect(self, TokenIdent).value;
     } else {
-        TODO("handle unexpected expr prefix");
+        Token have = current(self);
+        panic("%d:%d: handle unexpected expr prefix: %d",
+                have.position.line, have.position.col, have.kind);
     }
 
     return expr;

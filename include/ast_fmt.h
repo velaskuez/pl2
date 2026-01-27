@@ -17,3 +17,6 @@ void ast_fmt_statement_return(Writer *writer, const AstExpr *expr, int indent);
 void ast_fmt_expr(Writer *writer, const AstExpr *expr, int indent);
 void ast_fmt_value(Writer *writer, const AstValue *value);
 void ast_fmt_binary_op(Writer *writer, const AstBinaryOp *binary_op);
+void ast_fmt_unary_op(Writer *writer, const AstUnaryOp *unary_op);
+void ast_fmt_compound_ident(Writer *writer, const Strings *idents);
+void ast_fmt_call(Writer *writer, const AstCall *call);

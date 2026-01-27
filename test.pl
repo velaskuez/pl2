@@ -4,5 +4,6 @@ struct MyStruct {
 }
 
 fn myfn(a int, b string) void {
-    return a[1 + 1 * 2] + 4;
+    1 + 1;
+    return a[myfn(1, 2, 4, 5) + 2];
 }
