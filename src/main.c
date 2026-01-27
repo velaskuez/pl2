@@ -27,5 +27,5 @@ int main() {
     parser.tokens = tokeniser.tokens;
     AstFile file = parse_file(&parser);
 
-    ast_fmt_file(&file, &printf_writer);
+    ast_fmt_file(&printf_writer, &file);
 }
