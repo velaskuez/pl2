@@ -167,6 +167,8 @@ void ast_fmt_value(Writer *writer, const AstValue *value) {
 }
 
 void ast_fmt_binary_op(Writer *writer, const AstBinaryOp *binary_op) {
+    if (binary_op->op != BinaryOpIndex) writer_append_cstr(writer, "(");
+
     ast_fmt_expr(writer, binary_op->left, 0);
 
     if (binary_op->op == BinaryOpIndex) {
@@ -181,6 +183,8 @@ void ast_fmt_binary_op(Writer *writer, const AstBinaryOp *binary_op) {
 
     if (binary_op->op == BinaryOpIndex) {
         writer_append_cstr(writer, "]");
+    } else {
+        writer_append_cstr(writer, ")");
     }
 }
 

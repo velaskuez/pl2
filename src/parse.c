@@ -58,6 +58,9 @@ static AstLet parse_let(Parser *self);
 static AstIf parse_if(Parser *self);
 static AstWhile parse_while(Parser *self);
 static AstExpr *parse_return(Parser *self);
+static AstIndex parse_index(Parser *self);
+static AstLocation parse_location(Parser *self);
+static AstAssign parse_assign(Parser *self);
 static AstStatement parse_statement(Parser *self);
 static AstStatements parse_statements(Parser *self);
 static AstBlock parse_block(Parser *self);
@@ -367,6 +370,53 @@ AstExpr *parse_return(Parser *self) {
     return nullptr;
 }
 
+AstIndex parse_index(Parser *self) {
+    AstIndex index = {0};
+
+    index.ident = expect(self, TokenIdent).value;
+    expect(self, TokenLBrack);
+    index.expr = parse_expr(self, 0);
+    expect(self, TokenRBrack);
+
+    return index;
+}
+
+AstLocation parse_location(Parser *self) {
+    AstLocation location = {0};
+
+    if (nth(self, 1).kind == TokenEqual) {
+        location.kind = LocationIdent;
+        location.as.ident = expect(self, TokenIdent).value;
+    } else if (nth(self, 1).kind == TokenDot) {
+        location.kind = LocationCompoundIdent;
+        location.as.compound_ident = parse_compound_ident(self);
+    } else if (nth(self, 1).kind == TokenLBrack) {
+        location.kind = LocationIndex;
+        location.as.index = parse_index(self);
+    }
+
+    return location;
+}
+
+AstAssign parse_assign(Parser *self) {
+    AstAssign assign = {0};
+
+    int position = self->position;
+
+    assign.location = parse_location(self);
+
+    // TODO: We should probably check for ==, this is fine for now though
+    if (assign.location.kind == 0 || !eat(self, TokenEqual)) {
+        self->position = position;
+        assign.location.kind = 0;
+        return assign;
+    }
+
+    assign.expr = parse_expr(self, 0);
+
+    return assign;
+}
+
 AstStatement parse_statement(Parser *self) {
     AstStatement statement = {0};
 
@@ -383,13 +433,9 @@ AstStatement parse_statement(Parser *self) {
         statement.kind = StatementReturn;
         statement.as.return_ = parse_return(self);
     } else if (at(self, TokenIdent)) {
-        // could be lvalue, check = and [
-        TokenKind next_token = nth(self, 1).kind;
-        if (next_token == TokenEqual) {
-            statement.kind = StatementAssign;
-        } else if (next_token == TokenLBrack) {
-            // parse_lvalue -> ident || ident[expr]; return lvalue, eat(Equal);
-        } else goto expr;
+        statement.kind = StatementAssign;
+        AstAssign assign = parse_assign(self);
+        if (assign.location.kind == 0) goto expr;
     } else { expr:
         statement.kind = StatementExpr;
         statement.as.expr = parse_expr(self, 0);

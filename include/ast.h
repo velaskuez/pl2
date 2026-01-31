@@ -124,8 +124,28 @@ typedef struct {
     AstExpr *expr;
 } AstLet;
 
+typedef enum {
+    LocationIdent = 1,
+    LocationCompoundIdent,
+    LocationIndex
+} LocationKind;
+
 typedef struct {
-    String name;
+    String ident;
+    AstExpr expr;
+} AstIndex;
+
+typedef struct {
+    LocationKind kind;
+    union {
+        String ident;
+        Strings compound_ident;
+        AstIndex index;
+    } as;
+} AstLocation;
+
+typedef struct {
+    AstLocation location;
     AstExpr expr;
 } AstAssign;
 
