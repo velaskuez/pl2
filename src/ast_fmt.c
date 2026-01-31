@@ -80,28 +80,31 @@ void ast_fmt_block(Writer *writer, const AstBlock *block, int indent) {
         ast_fmt_statement(writer, statement, indent);
         sep = "\n";
     }
-    writer_append_cstr(writer, "\n}");
+    writer_append_cstr(writer, "\n");
+    writer_append_indent(writer, indent-1);
+    writer_append_cstr(writer, "}");
 }
 
 void ast_fmt_statement(Writer *writer, const AstStatement *statement, int indent) {
     switch (statement->kind) {
     case StatementReturn:
-        ast_fmt_statement_return(writer, statement->as.return_, indent);
+        ast_fmt_return(writer, statement->as.return_, indent);
         break;
     case StatementAssign:
-        writer_append_cstr(writer, "TODO assign");
+        ast_fmt_assign(writer, &statement->as.assign, indent);
         break;
     case StatementLet:
-        writer_append_cstr(writer, "TODO let");
+        ast_fmt_let(writer, &statement->as.let, indent);
         break;
     case StatementExpr:
         ast_fmt_expr(writer, &statement->as.expr, indent);
         break;
     case StatementIf:
-        writer_append_cstr(writer, "TODO if");
+        writer_append_indent(writer, indent); // since we don't want an indent in `else if`
+        ast_fmt_if(writer, &statement->as.if_, indent);
         break;
     case StatementWhile:
-        writer_append_cstr(writer, "TODO while");
+        ast_fmt_while(writer, &statement->as.while_, indent);
         break;
     break;
     }
@@ -109,7 +112,7 @@ void ast_fmt_statement(Writer *writer, const AstStatement *statement, int indent
     writer_append_cstr(writer, ";");
 }
 
-void ast_fmt_statement_return(Writer *writer, const AstExpr *expr, int indent) {
+void ast_fmt_return(Writer *writer, const AstExpr *expr, int indent) {
     writer_append_indent(writer, indent);
     writer_append_cstr(writer, "return");
 
@@ -117,6 +120,68 @@ void ast_fmt_statement_return(Writer *writer, const AstExpr *expr, int indent) {
         writer_append_cstr(writer, " ");
         ast_fmt_expr(writer, expr, 0);
     }
+}
+
+void ast_fmt_index(Writer *writer, const AstIndex *index) {
+    writer_append_string(writer, &index->ident);
+    writer_append_cstr(writer, "[");
+    ast_fmt_expr(writer, &index->expr, 0);
+    writer_append_cstr(writer, "]");
+}
+
+void ast_fmt_location(Writer *writer, const AstLocation *location) {
+    switch (location->kind) {
+    case LocationIdent:
+        writer_append_string(writer, &location->as.ident);
+    break;
+    case LocationCompoundIdent:
+        ast_fmt_compound_ident(writer, &location->as.compound_ident);
+    break;
+    case LocationIndex:
+        ast_fmt_index(writer, &location->as.index);
+    break;
+    }
+}
+
+void ast_fmt_assign(Writer *writer, const AstAssign *assign, int indent) {
+    writer_append_indent(writer, indent);
+
+    ast_fmt_location(writer, &assign->location);
+    writer_append_cstr(writer, " = ");
+    ast_fmt_expr(writer, &assign->expr, 0);
+}
+
+void ast_fmt_let(Writer *writer, const AstLet *let, int indent) {
+    writer_append_indent(writer, indent);
+
+    writer_append_cstr(writer, "let ");
+    writer_append_string(writer, &let->name);
+    if (let->type != nullptr) {
+        writer_append_cstr(writer, " ");
+        ast_fmt_type(writer, let->type);
+    }
+    writer_append_cstr(writer, " = ");
+    ast_fmt_expr(writer, let->expr, 0);
+}
+
+void ast_fmt_if(Writer *writer, const AstIf *if_, int indent) {
+    writer_append_cstr(writer, "if ");
+    ast_fmt_expr(writer, &if_->condition, 0);
+    writer_append_cstr(writer, " ");
+    ast_fmt_block(writer, &if_->block, indent + 1);
+    if (if_->else_ != nullptr) {
+        writer_append_cstr(writer, " else ");
+        ast_fmt_if(writer, if_->else_, indent);
+    }
+}
+
+void ast_fmt_while(Writer *writer, const AstWhile *while_, int indent) {
+    writer_append_indent(writer, indent);
+
+    writer_append_cstr(writer, "while ");
+    ast_fmt_expr(writer, &while_->condition, 0);
+    writer_append_cstr(writer, " ");
+    ast_fmt_block(writer, &while_->block, indent + 1);
 }
 
 void ast_fmt_expr(Writer *writer, const AstExpr *expr, int indent) {

@@ -323,6 +323,8 @@ AstLet parse_let(Parser *self) {
         let.type = box(parse_type(self));
     }
 
+    expect(self, TokenEqual);
+
     if (!at(self, TokenSemicolon)) {
         let.expr = box(parse_expr(self, 0));
     }
@@ -338,6 +340,8 @@ AstIf parse_if(Parser *self) {
     int expect_r_paren = eat(self, TokenLParen);
     if_.condition = parse_expr(self, 0);
     if (expect_r_paren) expect(self, TokenRParen);
+
+    if_.block = parse_block(self);
 
     if (eat(self, KeywordElse)) {
         if_.else_ = box(parse_if(self));
@@ -434,8 +438,8 @@ AstStatement parse_statement(Parser *self) {
         statement.as.return_ = parse_return(self);
     } else if (at(self, TokenIdent)) {
         statement.kind = StatementAssign;
-        AstAssign assign = parse_assign(self);
-        if (assign.location.kind == 0) goto expr;
+        statement.as.assign = parse_assign(self);
+        if (statement.as.assign.location.kind == 0) goto expr;
     } else { expr:
         statement.kind = StatementExpr;
         statement.as.expr = parse_expr(self, 0);
@@ -459,6 +463,8 @@ AstStatements parse_statements(Parser *self) {
 AstBlock parse_block(Parser *self) {
     AstBlock block = {0};
     expect(self, TokenLCurly);
+    if (eat(self, TokenRCurly)) return block;
+
     block.statements = parse_statements(self);
     expect(self, TokenRCurly);
 

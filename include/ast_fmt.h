@@ -12,7 +12,13 @@ void ast_fmt_param(Writer *writer, const AstParam *param, int indent);
 
 void ast_fmt_block(Writer *writer, const AstBlock *block, int indent);
 void ast_fmt_statement(Writer *writer, const AstStatement *statement, int indent);
-void ast_fmt_statement_return(Writer *writer, const AstExpr *expr, int indent);
+void ast_fmt_return(Writer *writer, const AstExpr *expr, int indent);
+void ast_fmt_index(Writer *writer, const AstIndex *index);
+void ast_fmt_location(Writer *writer, const AstLocation *location);
+void ast_fmt_assign(Writer *writer, const AstAssign *assign, int indent);
+void ast_fmt_let(Writer *writer, const AstLet *let, int indent);
+void ast_fmt_if(Writer *writer, const AstIf *if_, int indent);
+void ast_fmt_while(Writer *writer, const AstWhile *while_, int indent);
 
 void ast_fmt_expr(Writer *writer, const AstExpr *expr, int indent);
 void ast_fmt_value(Writer *writer, const AstValue *value);
