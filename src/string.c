@@ -54,6 +54,11 @@ int string_cstr_cmp(const String *s, char *t) {
     return 0;
 }
 
+int string_cmp(const String *s, const String *t) {
+    if (s->len != t->len) return -1;
+    return strcmp(s->items, t->items);
+}
+
 void string_append_cstr(String *s, const char *t) {
     for (const char *c = t; *c; c++) {
         append(s, *c)
