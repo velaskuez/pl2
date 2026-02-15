@@ -3,17 +3,23 @@
 #include <stdio.h>
 
 #include "gen.h"
+#include "symbol.h"
 #include "array.h"
 #include "ast.h"
 #include "str.h"
 #include "type.h"
 #include "util.h"
 
+static void init_scoped_symbols(Generator *self);
+static void free_scoped_symbols(Generator *self);
+
 void gen_init(Generator *self) {
+    init_scoped_symbols(self);
+
     Type types[] = PRIMITIVE_TYPES;
 
-    for (Type *type = &types[0]; type < type+sizeof(types); type++) {
-        append(&self->types, *type);
+    for (size_t i = 0; i < sizeof(types)/sizeof(types[0]); i++) {
+        append(&self->types, types[i]);
     }
 }
 
@@ -64,11 +70,11 @@ void gen_struct(Generator *self, const AstStruct *ast_struct) {
 
         // Ensure any fields which are structs are also pointers
         // since we're compiling for stack
+        // TODO: if we decide to generate IR -> stack (or other backend), then we
+        // can move this check later
         if (typeid > I8PtrTypeID && !ast_field->type.pointer) {
             TODO("structs must only contain pointers to other structs");
         }
-
-        Type type = self->types.items[typeid];
 
         // We need to resolve all of the field types before we can calculate
         // the offsets of them
@@ -80,7 +86,7 @@ void gen_struct(Generator *self, const AstStruct *ast_struct) {
 
     size_t offset = 0;
     size_t padding = 0;
-    for (size_t i = 0; i < &struct_.field_types.len; i++) {
+    for (size_t i = 0; i < struct_.field_types.len; i++) {
         StructField *it = &struct_.field_types.items[i];
 
         it->offset = offset;
@@ -120,4 +126,22 @@ void gen_struct(Generator *self, const AstStruct *ast_struct) {
     struct_.id = self->types.len-1;
 
     return;
+}
+
+void gen_block(Generator *self) {
+    init_scoped_symbols(self);
+    free_scoped_symbols(self);
+}
+
+void init_scoped_symbols(Generator *self) {
+    SymbolChain symbols = {0};
+    SymbolChain *next = self->symbols;
+    self->symbols = box(symbols);
+    self->symbols->next = next;
+}
+
+void free_scoped_symbols(Generator *self) {
+    SymbolChain *symbols = self->symbols->next;
+    free(self->symbols);
+    self->symbols = symbols;
 }

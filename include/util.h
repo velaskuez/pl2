@@ -1,3 +1,7 @@
+#pragma once
+
+#include "string.h"
+
 #define box(data) ({                           \
     auto value = data;                         \
     void *allocation = malloc(sizeof(value));  \

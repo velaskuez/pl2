@@ -18,6 +18,11 @@ typedef enum TypeID {
 } PrimitiveTypeID;
 
 typedef struct {
+    size_t len, cap;
+    TypeID *items;
+} TypeIDs;
+
+typedef struct {
     String key;
     bool pointer;
     // For primitive types (int, long, char), size = realsize

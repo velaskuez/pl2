@@ -13,28 +13,6 @@
     (array)->items = realloc((array)->items, (array)->cap * sizeof((array)->items[0]));            \
     (array)->items[(array)->len++] = item;
 
-#define peek(iter)                                                                                 \
-    ({                                                                                             \
-        auto value = &(iter)->array.items[0];                                                      \
-        if ((iter)->position >= (iter)->array.len) {                                               \
-            value = nullptr;                                                                       \
-        } else {                                                                                   \
-            value = &(iter)->array.items[(iter)->position];                                        \
-        }                                                                                          \
-        value;                                                                                     \
-    })
-
-#define next(iter)                                                                                 \
-    ({                                                                                             \
-        auto value = &(iter)->array.items[0];                                                      \
-        if ((iter)->position >= (iter)->array.len) {                                               \
-            value = nullptr;                                                                       \
-        } else {                                                                                   \
-            value = &(iter)->array.items[(iter)->position++];                                      \
-        }                                                                                          \
-        value;                                                                                     \
-    })
-
 #define arrayfree(array)                                                                           \
     if ((array)->items != nullptr) {                                                               \
         free((array)->items);                                                                      \

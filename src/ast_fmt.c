@@ -4,7 +4,6 @@
 #include "ast_fmt.h"
 #include "array.h"
 #include "writer.h"
-#include "util.h"
 
 static void writer_append_indent(Writer *writer, int indent) {
     upto(indent) {
