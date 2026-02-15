@@ -27,6 +27,7 @@ static int infix_prec[] = {
 
 static int prefix_prec[] = {
     [UnaryOpSizeOf] = 200,
+    [UnaryOpNew] = 200,
 };
 
 static AstExpr make_binary_op(AstExpr lhs, BinaryOp op, AstExpr rhs) {
@@ -48,6 +49,7 @@ static int eof(Parser *self);
 static AstValue parse_value(Parser *self);
 static AstCall parse_call(Parser *self);
 static Strings parse_compound_ident(Parser *self);
+static AstUnaryOp parse_unary_op(Parser *self);
 static AstExpr parse_prefix_expr(Parser *self);
 static BinaryOp parse_binary_op(Parser *self);
 static AstExpr parse_expr(Parser *self, int prec);
@@ -87,6 +89,7 @@ char *binary_op_str[] = {
 
 char * unary_op_str[] = {
     [UnaryOpSizeOf] = "sizeof",
+    [UnaryOpNew] = "new",
 };
 
 AstFile parse_file(Parser *self) {
@@ -197,16 +200,37 @@ Strings parse_compound_ident(Parser *self) {
     return idents;
 }
 
+AstUnaryOp parse_unary_op(Parser *self) {
+    AstUnaryOp unary_op = {0};
+
+    if (eat(self, KeywordSizeof)) {
+        unary_op.op = UnaryOpSizeOf;
+        unary_op.expr = box(parse_expr(self, prefix_prec[UnaryOpSizeOf]));
+    } else if (eat(self, KeywordNew)) {
+        unary_op.op = UnaryOpNew;
+
+        // Let expect report the error
+        if (!at(self, TokenIdent)) expect(self, TokenIdent);
+
+        unary_op.expr = box(parse_expr(self, prefix_prec[UnaryOpNew]));
+    } else {
+        Token have = current(self);
+        panic("%d:%d: unexpected unary op: %d",
+                have.position.line, have.position.col, have.kind);
+    }
+
+    return unary_op;
+}
+
 AstExpr parse_prefix_expr(Parser *self) {
     AstExpr expr = {0};
 
     if (eat(self, TokenLParen)) {
         expr = parse_expr(self, 0);
         expect(self, TokenRParen);
-    } else if (eat(self, KeywordSizeof)) {
+    } else if (at(self, KeywordSizeof) || at(self, KeywordNew)) {
         expr.kind = ExprUnaryOp;
-        expr.as.unary_op.op = UnaryOpSizeOf;
-        expr.as.unary_op.expr = box(parse_expr(self, prefix_prec[UnaryOpSizeOf]));
+        expr.as.unary_op = parse_unary_op(self);
     } else if (at(self, TokenString) || at(self, TokenChar) || at(self, TokenNumber)) {
         expr.kind = ExprValue;
         expr.as.value = parse_value(self);
@@ -221,7 +245,7 @@ AstExpr parse_prefix_expr(Parser *self) {
         expr.as.ident = expect(self, TokenIdent).value;
     } else {
         Token have = current(self);
-        panic("%d:%d: handle unexpected expr prefix: %d",
+        panic("%d:%d: unexpected expr prefix: %d",
                 have.position.line, have.position.col, have.kind);
     }
 

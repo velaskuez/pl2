@@ -7,6 +7,8 @@ fn myfn(a int, b string) void {
     let a *int = 3;
     let b = 4;
 
+    let c *MyStruct = new MyStruct;
+
     a.b.c = 3;
     a[a * b] = 3;
 
