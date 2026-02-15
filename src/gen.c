@@ -13,6 +13,26 @@
 static void init_scoped_symbols(Generator *self);
 static void free_scoped_symbols(Generator *self);
 
+static TypeID gen_type(Generator *self, const AstType *ast_type);
+static void gen_struct(Generator *self, const AstStruct *ast_struct);
+static void gen_function(Generator *self, const AstFunction *function);
+static void gen_block(Generator *self, const AstBlock *block);
+static void gen_statements(Generator *self, const AstStatements *statements);
+static void gen_statement(Generator *self, const AstStatement *statement);
+static void gen_assign(Generator *self, const AstAssign *assign);
+static void gen_let(Generator *self, const AstLet *let);
+static void gen_return(Generator *self, const AstExpr *return_);
+static void gen_if(Generator *self, const AstIf *if_);
+static void gen_while(Generator *self, const AstWhile *while_);
+
+static void gen_expr(Generator *self, const AstExpr *expr);
+static void gen_binary_op(Generator *self, const AstBinaryOp *binary_op);
+static void gen_unary_op(Generator *self, const AstUnaryOp *unary_op);
+static void gen_value(Generator *self, const AstValue *value);
+static void gen_ident(Generator *self, const String *ident);
+static void gen_compound_ident(Generator *self, const Strings *idents);
+static void gen_call(Generator *self, const AstCall *call);
+
 void gen_init(Generator *self) {
     init_scoped_symbols(self);
 
@@ -128,9 +148,63 @@ void gen_struct(Generator *self, const AstStruct *ast_struct) {
     return;
 }
 
-void gen_block(Generator *self) {
+void gen_function(Generator *self, const AstFunction *function) {
+    // Save the tmp count to reset at the end - this will be useful
+    // when we come to implement scoped functions
+    int tmpvar = self->tmpvar;
+
+    TypeID return_typeid = gen_type(self, function->return_type);
+    if (return_typeid < 0) TODO("handle unknown type");
+
+    TypeIDs arg_typeids = {0};
+    foreach(param, &function->params) {
+        TypeID typeid = gen_type(self, &param->type);
+        if (typeid < 0) TODO("handle unknown type");
+
+        append(&arg_typeids, typeid);
+        append(&self->symbols->head, symbol_make_variable(param->name, typeid, self->tmpvar++));
+    }
+
+    append(&self->symbols->head, symbol_make_function(function->name, return_typeid, arg_typeids));
+
+    gen_block(self, &function->block);
+
+    self->tmpvar = tmpvar; // Reset
+}
+
+void gen_block(Generator *self, const AstBlock *block) {
     init_scoped_symbols(self);
+    gen_statements(self, &block->statements);
     free_scoped_symbols(self);
+}
+
+void gen_statements(Generator *self, const AstStatements *statements) {
+    foreach(statement, statements) {
+        gen_statement(self, statement);
+    }
+}
+
+void gen_statement(Generator *self, const AstStatement *statement) {
+    switch (statement->kind) {
+    case StatementAssign:
+        gen_assign(self, &statement->as.assign);
+        break;
+    case StatementLet:
+        gen_let(self, &statement->as.let);
+        break;
+    case StatementExpr:
+        gen_expr(self, &statement->as.expr);
+        break;
+    case StatementReturn:
+        gen_return(self, statement->as.return_);
+        break;
+    case StatementIf:
+        gen_if(self, &statement->as.if_);
+        break;
+    case StatementWhile:
+        gen_while(self, &statement->as.while_);
+        break;
+    }
 }
 
 void init_scoped_symbols(Generator *self) {
