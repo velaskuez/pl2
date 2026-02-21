@@ -3,7 +3,7 @@
 #include "str.h"
 
 Symbol *symbol_find(SymbolChain *self, const String *key) {
-    if (self ==  nullptr) return nullptr;
+    if (self == nullptr) return nullptr;
 
     foreach(symbol, &self->head) {
         if (string_cmp(&symbol->key, key) == 0) {

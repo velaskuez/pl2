@@ -100,4 +100,3 @@ typedef struct {
             .alignment = 8, \
         } \
     } \
-

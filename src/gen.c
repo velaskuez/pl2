@@ -8,10 +8,12 @@
 #include "ast.h"
 #include "str.h"
 #include "type.h"
+#include "type_inf.h"
 #include "util.h"
 
 static void init_scoped_symbols(Generator *self);
 static void free_scoped_symbols(Generator *self);
+static void add_compile_error(Generator *self, const char* fmt, ...);
 
 static TypeID gen_type(Generator *self, const AstType *ast_type);
 static void gen_struct(Generator *self, const AstStruct *ast_struct);
@@ -26,6 +28,7 @@ static void gen_if(Generator *self, const AstIf *if_);
 static void gen_while(Generator *self, const AstWhile *while_);
 
 static void gen_expr(Generator *self, const AstExpr *expr);
+static void gen_expr_ensure_type(Generator *self, const AstExpr *expr, TypeID typeid);
 static void gen_binary_op(Generator *self, const AstBinaryOp *binary_op);
 static void gen_unary_op(Generator *self, const AstUnaryOp *unary_op);
 static void gen_value(Generator *self, const AstValue *value);
@@ -66,8 +69,8 @@ TypeID gen_type(Generator *self, const AstType *ast_type) {
     if (foundid < 0) return -1;
 
     // The type exists but it is not ast_type->pointer
-    // It shouldn't be possible for the pointer type to be defined before
-    // the actual type.
+    // It shouldn't be possible for the pointer type to
+    // be defined before the actual type.
     assert(ast_type->pointer);
     Type type = self->types.items[foundid];
     type.pointer = true;
@@ -134,7 +137,7 @@ void gen_struct(Generator *self, const AstStruct *ast_struct) {
         offset += padding;
     }
 
-    // At this point, offset = size
+    // At this point, offset == size
     Type type = {0};
     type.key = ast_struct->name;
     type.realsize = type.size = offset;
@@ -151,7 +154,7 @@ void gen_struct(Generator *self, const AstStruct *ast_struct) {
 void gen_function(Generator *self, const AstFunction *function) {
     // Save the tmp count to reset at the end - this will be useful
     // when we come to implement scoped functions
-    int tmpvar = self->tmpvar;
+    int var = self->var;
 
     TypeID return_typeid = gen_type(self, function->return_type);
     if (return_typeid < 0) TODO("handle unknown type");
@@ -162,14 +165,14 @@ void gen_function(Generator *self, const AstFunction *function) {
         if (typeid < 0) TODO("handle unknown type");
 
         append(&arg_typeids, typeid);
-        append(&self->symbols->head, symbol_make_variable(param->name, typeid, self->tmpvar++));
+        append(&self->symbols->head, symbol_make_variable(param->name, typeid, self->var++));
     }
 
     append(&self->symbols->head, symbol_make_function(function->name, return_typeid, arg_typeids));
 
     gen_block(self, &function->block);
 
-    self->tmpvar = tmpvar; // Reset
+    self->var = var; // Reset
 }
 
 void gen_block(Generator *self, const AstBlock *block) {
@@ -207,6 +210,40 @@ void gen_statement(Generator *self, const AstStatement *statement) {
     }
 }
 
+void gen_let(Generator *self, const AstLet *let) {
+    if (symbol_find(self->symbols, &let->name) != nullptr) {
+        add_compile_error(self, "redefinition of %.*s", STRING_FMT_ARGS(&let->name));
+        return;
+    }
+
+    TypeID typeid = -1;
+    if (let->type != nullptr) {
+        typeid = gen_type(self, let->type);
+        if (typeid < 0) {
+            add_compile_error(self, "undefined type: %s%.*s",
+                    let->type->pointer ? "*" : "",
+                    STRING_FMT_ARGS(&let->type->name));
+            return;
+        }
+    } else {
+        typeid = infer_type(&self->types, self->symbols, let->expr);
+        if (typeid < 0) {
+            add_compile_error(self, "cannot infer type of expression");
+            return;
+        }
+    }
+
+
+    int var = self->var++;
+    append(&self->symbols->head, symbol_make_variable(let->name, typeid, var));
+    if (let->expr == nullptr) return;
+
+    Type type = self->types.items[typeid];
+    gen_expr_ensure_type(self, let->expr, typeid);
+
+    self->write_fn("store.%s %d", "?", var);
+}
+
 void init_scoped_symbols(Generator *self) {
     SymbolChain symbols = {0};
     SymbolChain *next = self->symbols;
@@ -218,4 +255,8 @@ void free_scoped_symbols(Generator *self) {
     SymbolChain *symbols = self->symbols->next;
     free(self->symbols);
     self->symbols = symbols;
+}
+
+void add_compile_error(Generator *self, const char *fmt, ...) {
+    TODO("implement add_compile_error");
 }

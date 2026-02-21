@@ -14,6 +14,8 @@ typedef struct {
 
 #define EMPTY_STRING (String){0}
 
+#define STRING_FMT_ARGS(s) (int)(s)->len, (s)->items
+
 String string_from_file(int);
 String string_from_cstr(char *);
 int string_cstr_cmp(const String *, char *);

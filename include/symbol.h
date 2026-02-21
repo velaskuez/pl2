@@ -2,6 +2,7 @@
 
 #include "type.h"
 #include "str.h"
+#include "type.h"
 
 // Type names could also be thought of as symbols, but during generation
 // we'll look at the types array for them, not the symbols array. Which also

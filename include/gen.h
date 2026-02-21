@@ -8,9 +8,9 @@ typedef struct {
     Types types;
     SymbolChain *symbols;
 
-    int tmpvar;
+    int var;
 
-    // int (*write_fn)(const char *, ...);
+    int (*write_fn)(const char *, ...);
 } Generator;
 
 

@@ -2,10 +2,9 @@
 
 #include "type.h"
 #include "ast.h"
+#include "symbol.h"
 
-// We also need to build up a table of symbols
-// Returns type_id (index into types)
-TypeID get_expr_type(Types *self, const AstExpr *expr) {
+TypeID infer_type(Types *self, SymbolChain* symbols, const AstExpr *expr) {
     return 0;
 }
 
