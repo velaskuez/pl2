@@ -12,9 +12,10 @@
 
 // "if the variable arguments are omitted or empty, the ‘##’ (token paste)
 // operator causes the preprocessor to remove the comma before it"
-#define panic(msg, ...) \
+#define panic(msg, ...) { \
     fprintf(stderr, "%s:%d: "msg"\n", __FILE__, __LINE__, ##__VA_ARGS__); \
-    exit(1)
+    exit(1); \
+}
 
 #define TODO(msg) \
     panic("%s: "msg, "TODO")

@@ -5,13 +5,14 @@
 
 #include "ast.h"
 #include "ast_fmt.h"
+#include "gen.h"
 #include "token.h"
 #include "util.h"
 #include "str.h"
 #include "writer.h"
 
 int main() {
-    int fd = open("test.pl", O_RDONLY);
+    int fd = open("test.pl2", O_RDONLY);
     if (!fd) {
         panic("could not open test.pl: %s", strerror(errno));
     }
@@ -27,5 +28,10 @@ int main() {
     parser.tokens = tokeniser.tokens;
     AstFile file = parse_file(&parser);
 
-    ast_fmt_file(&printf_writer, &file);
+    // ast_fmt_file(&printf_writer, &file);
+
+    Generator gen = {0};
+    gen_init(&gen);
+
+    gen_file(&gen, &file);
 }

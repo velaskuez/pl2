@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
 
@@ -16,6 +17,7 @@ static void init_scoped_symbols(Generator *self);
 static void free_scoped_symbols(Generator *self);
 static void add_compile_error(Generator *self, const char* fmt, ...) __attribute__((format(printf, 2, 3)));
 static void add_internal_error(Generator *self, const char* fmt, ...) __attribute__((format(printf, 2, 3)));
+static int printf_with_newline(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
 
 static TypeID gen_type(Generator *self, const AstType *ast_type);
 static void gen_struct(Generator *self, const AstStruct *ast_struct);
@@ -45,6 +47,18 @@ void gen_init(Generator *self) {
 
     for (size_t i = 0; i < sizeof(types)/sizeof(types[0]); i++) {
         append(&self->types, types[i]);
+    }
+
+    self->write_fn = printf_with_newline;
+}
+
+void gen_file(Generator *self, const AstFile *file) {
+    foreach(struct_, &file->structs) {
+        gen_struct(self, struct_);
+    }
+
+    foreach(function, &file->functions) {
+        gen_function(self, function);
     }
 }
 
@@ -212,15 +226,8 @@ void gen_statement(Generator *self, const AstStatement *statement) {
     }
 }
 
-void gen_statement_expr(Generator *self, const AstExpr *expr) {
-    TypeID typeid = infer_type(&self->types, &self->symbols, expr);
-    if (typeid < 0) {
-        add_compile_error(self, "cannot infer type of expression");
-        return;
-    }
-
-    Type *type = &self->types.items[typeid];
-    gen_expr(self, expr, &type);
+void gen_assign(Generator *self, const AstAssign *assign) {
+    return;
 }
 
 void gen_let(Generator *self, const AstLet *let) {
@@ -247,6 +254,10 @@ void gen_let(Generator *self, const AstLet *let) {
     }
 
 
+    // TODO: for stack, we need to bump this up by two for types that
+    // take up two slots. But it would be better to decouple this stage
+    // of the compilation from stack. Perhaps store this along with the type
+    // in the IR, then bump the local counter during IR -> stack.
     int var = self->var++;
     append(&self->symbols->head, symbol_make_variable(let->name, typeid, var));
     if (let->expr == nullptr) return;
@@ -254,7 +265,30 @@ void gen_let(Generator *self, const AstLet *let) {
     Type type = self->types.items[typeid];
     gen_expr(self, let->expr, &type);
 
-    self->write_fn("store.%s %d", "?", var);
+    self->write_fn("store%s %d", op_ext(&type), var);
+}
+
+void gen_statement_expr(Generator *self, const AstExpr *expr) {
+    TypeID typeid = infer_type(&self->types, self->symbols, expr);
+    if (typeid < 0) {
+        add_compile_error(self, "cannot infer type of expression");
+        return;
+    }
+
+    Type *type = &self->types.items[typeid];
+    gen_expr(self, expr, type);
+}
+
+void gen_return(Generator *self, const AstExpr *return_) {
+    return;
+}
+
+void gen_if(Generator *self, const AstIf *if_) {
+    return;
+}
+
+void gen_while(Generator *self, const AstWhile *while_) {
+    return;
 }
 
 void gen_expr(Generator *self, const AstExpr *expr, const Type *type) {
@@ -280,10 +314,18 @@ void gen_expr(Generator *self, const AstExpr *expr, const Type *type) {
     }
 }
 
+void gen_binary_op(Generator *self, const AstBinaryOp *binary_op, const Type *type) {
+    return;
+}
+
+void gen_unary_op(Generator *self, const AstUnaryOp *unary_op, const Type *type) {
+    return;
+}
+
 void gen_value(Generator *self, const AstValue *value, const Type *type) {
     switch (value->kind) {
     case ValueString:
-        if (!type->pointer || type->size != 1) {
+        if (!type->pointer || type->realsize != 1) {
             add_internal_error(self, "attempted to generate string with an incompatible type");
             return;
         }
@@ -301,7 +343,7 @@ void gen_value(Generator *self, const AstValue *value, const Type *type) {
             return;
         }
 
-        self->write_fn("push%s '%c'", op_ext(type), &value->as.char_);
+        self->write_fn("push%s '%c'", op_ext(type), (char)value->as.char_);
         return;
     case ValueNumber:
         if (type->size > 8) {
@@ -309,9 +351,21 @@ void gen_value(Generator *self, const AstValue *value, const Type *type) {
             return;
         }
 
-        self->write_fn("push%s %d", op_ext(type), &value->as.number);
+        self->write_fn("push%s %ld", op_ext(type), value->as.number);
         return;
     }
+}
+
+void gen_ident(Generator *self, const String *ident, const Type *type) {
+    return;
+}
+
+void gen_compound_ident(Generator *self, const Strings *idents, const Type *type) {
+    return;
+}
+
+void gen_call(Generator *self, const AstCall *call, const Type *type) {
+    return;
 }
 
 void init_scoped_symbols(Generator *self) {
@@ -333,4 +387,16 @@ void add_compile_error(Generator *self, const char *fmt, ...) {
 
 void add_internal_error(Generator *self, const char *fmt, ...) {
     TODO("implement add_internal_error");
+}
+
+int printf_with_newline(const char* fmt, ...) {
+    int n = 0;
+
+    va_list args;
+    va_start(args, fmt);
+    n += vprintf(fmt, args);
+    va_end(args);
+    n += printf("\n");
+
+    return n;
 }

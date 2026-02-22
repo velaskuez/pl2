@@ -1,6 +1,6 @@
 # compile_flags.txt is needed in the project to support relative paths here
 CompileFlags:
-    Add: [-I./include, -I./thirdparty/Unity, -Wall, -Wextra, -pedantic, -std=c23, -Wno-char-subscripts, -Wno-gnu-statement-expression-from-macro-expansion, -Wno-gnu-case-range]
+    Add: [-I./include, -I./thirdparty/Unity, -Wall, -Wextra, -pedantic, -std=c23, -Wno-char-subscripts, -Wno-gnu-statement-expression-from-macro-expansion, -Wno-gnu-case-range, -Wgnu-zero-variadic-macro-arguments, -Werror=incompatible-pointer-types ]
     Remove: [-Wempty-translation-unit]
 
 ---

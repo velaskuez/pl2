@@ -8,7 +8,7 @@ typedef enum {
     DoubleSlot,
 } SlotSize;
 
-typedef size_t TypeID ; // The index into the Types array
+typedef long TypeID ; // The index into the Types array
 typedef enum TypeID {
     VoidTypeID,
     I8TypeID,

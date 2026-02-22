@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -ex
+set -e
 
 ensure_dir() {
     if [[ ! -e "$1" ]]; then
@@ -24,6 +24,8 @@ build_object() {
         -Wno-char-subscripts \
         -Wno-gnu-statement-expression-from-macro-expansion \
         -Wno-gnu-case-range \
+        -Wgnu-zero-variadic-macro-arguments \
+        -Werror=incompatible-pointer-types \
         -c $1 \
         -o $2
 }

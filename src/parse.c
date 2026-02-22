@@ -319,7 +319,7 @@ AstType parse_type(Parser *self) {
 AstParam parse_param(Parser *self) {
     AstParam param = {0};
     param.name = expect(self, TokenIdent).value;
-    param.type.name = expect(self, TokenIdent).value;
+    param.type = parse_type(self);
 
     return param;
 }
