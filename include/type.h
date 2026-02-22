@@ -28,7 +28,7 @@ typedef struct {
     // For primitive types (int, long, char), size = realsize
     // If type is a pointer, size = 8, realsize = the size to allocate
     int size, realsize;
-    SlotSize slotsize;
+    SlotSize slotsize; // TODO: this is stack-specific, it could instead be derived like op_ext
     int alignment;
 } Type;
 
@@ -95,8 +95,8 @@ typedef struct {
             .key = string_from_cstr("i8"), \
             .pointer = true, \
             .size = 8, \
-            .realsize = 8, \
+            .realsize = 1, \
             .slotsize = DoubleSlot, \
-            .alignment = 8, \
+            .alignment = 1, \
         } \
     } \

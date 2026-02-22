@@ -8,9 +8,10 @@ typedef struct {
     Types types;
     SymbolChain *symbols;
 
-    int var;
+    int var; // For allocating temporary variables
+    int string; // For assigning labels to static strings
 
-    int (*write_fn)(const char *, ...);
+    int (*write_fn)(const char *, ...) __attribute__((format(printf, 1, 2)));
 } Generator;
 
 

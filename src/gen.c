@@ -10,10 +10,12 @@
 #include "type.h"
 #include "type_inf.h"
 #include "util.h"
+#include "stack.h"
 
 static void init_scoped_symbols(Generator *self);
 static void free_scoped_symbols(Generator *self);
-static void add_compile_error(Generator *self, const char* fmt, ...);
+static void add_compile_error(Generator *self, const char* fmt, ...) __attribute__((format(printf, 2, 3)));
+static void add_internal_error(Generator *self, const char* fmt, ...) __attribute__((format(printf, 2, 3)));
 
 static TypeID gen_type(Generator *self, const AstType *ast_type);
 static void gen_struct(Generator *self, const AstStruct *ast_struct);
@@ -23,18 +25,18 @@ static void gen_statements(Generator *self, const AstStatements *statements);
 static void gen_statement(Generator *self, const AstStatement *statement);
 static void gen_assign(Generator *self, const AstAssign *assign);
 static void gen_let(Generator *self, const AstLet *let);
+static void gen_statement_expr(Generator *self, const AstExpr *return_);
 static void gen_return(Generator *self, const AstExpr *return_);
 static void gen_if(Generator *self, const AstIf *if_);
 static void gen_while(Generator *self, const AstWhile *while_);
 
-static void gen_expr(Generator *self, const AstExpr *expr);
-static void gen_expr_ensure_type(Generator *self, const AstExpr *expr, TypeID typeid);
-static void gen_binary_op(Generator *self, const AstBinaryOp *binary_op);
-static void gen_unary_op(Generator *self, const AstUnaryOp *unary_op);
-static void gen_value(Generator *self, const AstValue *value);
-static void gen_ident(Generator *self, const String *ident);
-static void gen_compound_ident(Generator *self, const Strings *idents);
-static void gen_call(Generator *self, const AstCall *call);
+static void gen_expr(Generator *self, const AstExpr *expr, const Type *type);
+static void gen_binary_op(Generator *self, const AstBinaryOp *binary_op, const Type *type);
+static void gen_unary_op(Generator *self, const AstUnaryOp *unary_op, const Type *type);
+static void gen_value(Generator *self, const AstValue *value, const Type * type);
+static void gen_ident(Generator *self, const String *ident, const Type *type);
+static void gen_compound_ident(Generator *self, const Strings *idents, const Type *type);
+static void gen_call(Generator *self, const AstCall *call, const Type *type);
 
 void gen_init(Generator *self) {
     init_scoped_symbols(self);
@@ -196,7 +198,7 @@ void gen_statement(Generator *self, const AstStatement *statement) {
         gen_let(self, &statement->as.let);
         break;
     case StatementExpr:
-        gen_expr(self, &statement->as.expr);
+        gen_statement_expr(self, &statement->as.expr);
         break;
     case StatementReturn:
         gen_return(self, statement->as.return_);
@@ -208,6 +210,17 @@ void gen_statement(Generator *self, const AstStatement *statement) {
         gen_while(self, &statement->as.while_);
         break;
     }
+}
+
+void gen_statement_expr(Generator *self, const AstExpr *expr) {
+    TypeID typeid = infer_type(&self->types, &self->symbols, expr);
+    if (typeid < 0) {
+        add_compile_error(self, "cannot infer type of expression");
+        return;
+    }
+
+    Type *type = &self->types.items[typeid];
+    gen_expr(self, expr, &type);
 }
 
 void gen_let(Generator *self, const AstLet *let) {
@@ -239,9 +252,66 @@ void gen_let(Generator *self, const AstLet *let) {
     if (let->expr == nullptr) return;
 
     Type type = self->types.items[typeid];
-    gen_expr_ensure_type(self, let->expr, typeid);
+    gen_expr(self, let->expr, &type);
 
     self->write_fn("store.%s %d", "?", var);
+}
+
+void gen_expr(Generator *self, const AstExpr *expr, const Type *type) {
+    switch (expr->kind) {
+    case ExprBinaryOp:
+        gen_binary_op(self, &expr->as.binary_op, type);
+        break;
+    case ExprUnaryOp:
+        gen_unary_op(self, &expr->as.unary_op, type);
+        break;
+    case ExprValue:
+        gen_value(self, &expr->as.value, type);
+        break;
+    case ExprIdent:
+        gen_ident(self, &expr->as.ident, type);
+        break;
+    case ExprCompoundIdent:
+        gen_compound_ident(self, &expr->as.compound_ident, type);
+        break;
+    case ExprCall:
+        gen_call(self, &expr->as.call, type);
+        break;
+    }
+}
+
+void gen_value(Generator *self, const AstValue *value, const Type *type) {
+    switch (value->kind) {
+    case ValueString:
+        if (!type->pointer || type->size != 1) {
+            add_internal_error(self, "attempted to generate string with an incompatible type");
+            return;
+        }
+
+        // TODO: if there are  duplicate string literals,
+        // then we could just create one string and reuse
+        // the label
+        int label = self->string++;
+        self->write_fn(".data s%d .string \"%.*s\"", label, STRING_FMT_ARGS(&value->as.string));
+        self->write_fn("dataptr s%d", label);
+        return;
+    case ValueChar:
+        if (type->size != 1) {
+            add_internal_error(self, "attempted to generate char with an incompatible type");
+            return;
+        }
+
+        self->write_fn("push%s '%c'", op_ext(type), &value->as.char_);
+        return;
+    case ValueNumber:
+        if (type->size > 8) {
+            add_internal_error(self, "attempted to generate number with an incompatible type");
+            return;
+        }
+
+        self->write_fn("push%s %d", op_ext(type), &value->as.number);
+        return;
+    }
 }
 
 void init_scoped_symbols(Generator *self) {
@@ -259,4 +329,8 @@ void free_scoped_symbols(Generator *self) {
 
 void add_compile_error(Generator *self, const char *fmt, ...) {
     TODO("implement add_compile_error");
+}
+
+void add_internal_error(Generator *self, const char *fmt, ...) {
+    TODO("implement add_internal_error");
 }
