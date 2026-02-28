@@ -4,12 +4,10 @@
 #include <string.h>
 
 #include "ast.h"
-#include "ast_fmt.h"
 #include "gen.h"
 #include "token.h"
 #include "util.h"
 #include "str.h"
-#include "writer.h"
 
 int main() {
     int fd = open("test.pl2", O_RDONLY);
