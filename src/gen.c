@@ -17,6 +17,7 @@ static void init_scoped_symbols(Generator *self);
 static void free_scoped_symbols(Generator *self);
 static void add_compile_error(Generator *self, const char* fmt, ...) __attribute__((format(printf, 2, 3)));
 static void add_internal_error(Generator *self, const char* fmt, ...) __attribute__((format(printf, 2, 3)));
+static int next_var(Generator *self, const Type *type);
 static int printf_with_newline(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
 
 static TypeID gen_type(Generator *self, const AstType *ast_type);
@@ -253,19 +254,16 @@ void gen_let(Generator *self, const AstLet *let) {
         }
     }
 
+    Type *type = &self->types.items[typeid];
 
-    // TODO: for stack, we need to bump this up by two for types that
-    // take up two slots. But it would be better to decouple this stage
-    // of the compilation from stack. Perhaps store this along with the type
-    // in the IR, then bump the local counter during IR -> stack.
-    int var = self->var++;
+    int var = next_var(self, type);
     append(&self->symbols->head, symbol_make_variable(let->name, typeid, var));
+
     if (let->expr == nullptr) return;
 
-    Type type = self->types.items[typeid];
-    gen_expr(self, let->expr, &type);
+    gen_expr(self, let->expr, type);
 
-    self->write_fn("store%s %d", op_ext(&type), var);
+    self->write_fn("store%s %d", op_ext(type), var);
 }
 
 void gen_statement_expr(Generator *self, const AstExpr *expr) {
@@ -280,6 +278,24 @@ void gen_statement_expr(Generator *self, const AstExpr *expr) {
 }
 
 void gen_return(Generator *self, const AstExpr *return_) {
+    // TODO: will need to access function context here to check
+    // return types
+
+    if (return_ == nullptr) {
+        self->write_fn("ret");
+        return;
+    }
+
+    TypeID typeid = infer_type(&self->types, self->symbols, return_);
+    if (typeid < 0) {
+        add_compile_error(self, "could not infer type of expression");
+        return;
+    }
+
+    Type *type = &self->types.items[typeid];
+    gen_expr(self, return_, type);
+    self->write_fn("ret.%s", ret_ext(type));
+
     return;
 }
 
@@ -330,7 +346,7 @@ void gen_value(Generator *self, const AstValue *value, const Type *type) {
             return;
         }
 
-        // TODO: if there are  duplicate string literals,
+        // TODO: if there are duplicate string literals,
         // then we could just create one string and reuse
         // the label
         int label = self->string++;
@@ -387,6 +403,25 @@ void add_compile_error(Generator *self, const char *fmt, ...) {
 
 void add_internal_error(Generator *self, const char *fmt, ...) {
     TODO("implement add_internal_error");
+}
+
+int next_var(Generator *self, const Type *type) {
+    // TODO: for stack, we need to bump this up by two for types that
+    // take up two slots. But it would be better to decouple this stage
+    // of the compilation from stack. Perhaps store this along with the type
+    // in the IR, then bump the local during IR -> stack.
+    int var = self->var;
+
+    switch (type->slotsize) {
+    case SingleSlot:
+        self->var++;
+        break;
+    case DoubleSlot:
+        self->var+=2;
+        break;
+    }
+
+    return var;
 }
 
 int printf_with_newline(const char* fmt, ...) {
