@@ -12,11 +12,10 @@
 #include "type_inf.h"
 #include "util.h"
 #include "stack.h"
+#include "report.h"
 
 static void init_scoped_symbols(Generator *self);
 static void free_scoped_symbols(Generator *self);
-static void add_compile_error(Generator *self, const char* fmt, ...) __attribute__((format(printf, 2, 3)));
-static void add_internal_error(Generator *self, const char* fmt, ...) __attribute__((format(printf, 2, 3)));
 static int next_var(Generator *self, const Type *type);
 static Inferred gen_infer_type(Generator *self, const AstExpr *expr);
 static int printf_with_newline(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
@@ -239,34 +238,34 @@ void gen_assign(Generator *self, const AstAssign *assign) {
 
 void gen_let(Generator *self, const AstLet *let) {
     if (symbol_find(self->symbols, &let->name) != nullptr) {
-        add_compile_error(self, "redefinition of %.*s", STRING_FMT_ARGS(&let->name));
+        report_error(&self->report, "redefinition of %.*s", STRING_FMT_ARGS(&let->name));
         return;
     }
 
     Inferred inferred = gen_infer_type(self, let->expr);
     if (inferred.type == nullptr) {
-        add_compile_error(self, "cannot infer type of expression");
+        report_error(&self->report, "cannot infer type of expression");
         return;
     }
 
     if (let->type != nullptr) {
         TypeID typeid = gen_type(self, let->type);
         if (typeid < 0) {
-            add_compile_error(self, "undefined type: %s%.*s",
-                    let->type->pointer ? "*" : "",
-                    STRING_FMT_ARGS(&let->type->name));
+            report_error(&self->report, "undefined type: %s%.*s",
+                         let->type->pointer ? "*" : "",
+                         STRING_FMT_ARGS(&let->type->name));
             return;
         }
 
         Type *type = &self->types.items[typeid];
-        if (inferred.is_coercible) {
+        if (!inferred.is_coercible) {
             if (!types_match(type, inferred.type)) {
-                add_compile_error(self, "typed let expression does not match expression");
+                report_error(&self->report, "typed let statement does not match expression");
                 return;
             }
         } else {
             if (!can_coerce_types(type, inferred.type)) {
-                add_compile_error(self, "typed let expression does not match expression");
+                report_error(&self->report, "typed let statement is not compatible with expression");
                 return;
             }
 
@@ -287,7 +286,7 @@ void gen_let(Generator *self, const AstLet *let) {
 void gen_statement_expr(Generator *self, const AstExpr *expr) {
     Inferred inferred = gen_infer_type(self, expr);
     if (inferred.type == nullptr) {
-        add_compile_error(self, "cannot infer type of expression");
+        report_error(&self->report, "cannot infer type of expression");
         return;
     }
 
@@ -305,7 +304,7 @@ void gen_return(Generator *self, const AstExpr *return_) {
 
     Inferred inferred = gen_infer_type(self, return_);
     if (inferred.type == nullptr) {
-        add_compile_error(self, "could not infer type of expression");
+        report_error(&self->report, "could not infer type of expression");
         return;
     }
 
@@ -358,7 +357,7 @@ void gen_value(Generator *self, const AstValue *value, const Type *type) {
     switch (value->kind) {
     case ValueString:
         if (!type->pointer || type->realsize != 1) {
-            add_internal_error(self, "attempted to generate string with an incompatible type");
+            report_internal_error(&self->report, "attempted to generate string with an incompatible type");
             return;
         }
 
@@ -371,7 +370,7 @@ void gen_value(Generator *self, const AstValue *value, const Type *type) {
         return;
     case ValueChar:
         if (type->size != 1) {
-            add_internal_error(self, "attempted to generate char with an incompatible type");
+            report_internal_error(&self->report, "attempted to generate char with an incompatible type");
             return;
         }
 
@@ -379,7 +378,7 @@ void gen_value(Generator *self, const AstValue *value, const Type *type) {
         return;
     case ValueNumber:
         if (type->size > 8) {
-            add_internal_error(self, "attempted to generate number with an incompatible type");
+            report_internal_error(&self->report, "attempted to generate number with an incompatible type");
             return;
         }
 
@@ -411,14 +410,6 @@ void free_scoped_symbols(Generator *self) {
     SymbolChain *symbols = self->symbols->next;
     free(self->symbols);
     self->symbols = symbols;
-}
-
-void add_compile_error(Generator *self, const char *fmt, ...) {
-    TODO("implement add_compile_error");
-}
-
-void add_internal_error(Generator *self, const char *fmt, ...) {
-    TODO("implement add_internal_error");
 }
 
 int next_var(Generator *self, const Type *type) {

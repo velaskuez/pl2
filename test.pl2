@@ -9,7 +9,7 @@ struct List {
 }
 
 fn myfn() void {
-    let a i8 = 3;
+    let a List = 3;
     let b *i8 = "hello";
     let c i8 = 'a';
 

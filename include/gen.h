@@ -3,6 +3,7 @@
 #include "type.h"
 #include "symbol.h"
 #include "ast.h"
+#include "report.h"
 
 typedef struct {
     Types types;
@@ -13,6 +14,8 @@ typedef struct {
     int string; // For assigning labels to static strings
 
     int (*write_fn)(const char *, ...) __attribute__((format(printf, 1, 2)));
+
+    Report report;
 } Generator;
 
 
