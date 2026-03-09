@@ -18,7 +18,7 @@ static void free_scoped_symbols(Generator *self);
 static void add_compile_error(Generator *self, const char* fmt, ...) __attribute__((format(printf, 2, 3)));
 static void add_internal_error(Generator *self, const char* fmt, ...) __attribute__((format(printf, 2, 3)));
 static int next_var(Generator *self, const Type *type);
-static const Type* gen_infer_type(Generator *self, const AstExpr *expr);
+static Inferred gen_infer_type(Generator *self, const AstExpr *expr);
 static int printf_with_newline(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
 
 static TypeID gen_type(Generator *self, const AstType *ast_type);
@@ -243,7 +243,12 @@ void gen_let(Generator *self, const AstLet *let) {
         return;
     }
 
-    const Type *type = nullptr;
+    Inferred inferred = gen_infer_type(self, let->expr);
+    if (inferred.type == nullptr) {
+        add_compile_error(self, "cannot infer type of expression");
+        return;
+    }
+
     if (let->type != nullptr) {
         TypeID typeid = gen_type(self, let->type);
         if (typeid < 0) {
@@ -253,33 +258,40 @@ void gen_let(Generator *self, const AstLet *let) {
             return;
         }
 
-        type = &self->types.items[typeid];
-    } else {
-        type = gen_infer_type(self, let->expr);
-        if (type == nullptr) {
-            add_compile_error(self, "cannot infer type of expression");
-            return;
+        Type *type = &self->types.items[typeid];
+        if (inferred.is_coercible) {
+            if (!types_match(type, inferred.type)) {
+                add_compile_error(self, "typed let expression does not match expression");
+                return;
+            }
+        } else {
+            if (!can_coerce_types(type, inferred.type)) {
+                add_compile_error(self, "typed let expression does not match expression");
+                return;
+            }
+
+            inferred.type = type;
         }
     }
 
-    int var = next_var(self, type);
-    append(&self->symbols->head, symbol_make_variable(let->name, *type, var));
+    int var = next_var(self, inferred.type);
+    append(&self->symbols->head, symbol_make_variable(let->name, *inferred.type, var));
 
     if (let->expr == nullptr) return;
 
-    gen_expr(self, let->expr, type);
+    gen_expr(self, let->expr, inferred.type);
 
-    self->write_fn("store%s %d", op_ext(type), var);
+    self->write_fn("store%s %d", op_ext(inferred.type), var);
 }
 
 void gen_statement_expr(Generator *self, const AstExpr *expr) {
-    const Type *type = gen_infer_type(self, expr);
-    if (type == nullptr) {
+    Inferred inferred = gen_infer_type(self, expr);
+    if (inferred.type == nullptr) {
         add_compile_error(self, "cannot infer type of expression");
         return;
     }
 
-    gen_expr(self, expr, type);
+    gen_expr(self, expr, inferred.type);
 }
 
 void gen_return(Generator *self, const AstExpr *return_) {
@@ -291,14 +303,14 @@ void gen_return(Generator *self, const AstExpr *return_) {
         return;
     }
 
-    const Type *type = gen_infer_type(self, return_);
-    if (type < 0) {
+    Inferred inferred = gen_infer_type(self, return_);
+    if (inferred.type == nullptr) {
         add_compile_error(self, "could not infer type of expression");
         return;
     }
 
-    gen_expr(self, return_, type);
-    self->write_fn("ret.%s", ret_ext(type));
+    gen_expr(self, return_, inferred.type);
+    self->write_fn("ret.%s", ret_ext(inferred.type));
 
     return;
 }
@@ -423,12 +435,15 @@ int next_var(Generator *self, const Type *type) {
     case DoubleSlot:
         self->var+=2;
         break;
+    case Invalid:
+        TODO("Invalid");
+        break;
     }
 
     return var;
 }
 
-const Type* gen_infer_type(Generator *self, const AstExpr *expr) {
+Inferred gen_infer_type(Generator *self, const AstExpr *expr) {
     return infer_type(&self->types, &self->structs, self->symbols, expr);
 }
 

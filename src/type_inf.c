@@ -15,21 +15,36 @@ static void infer_ident_type(TypeInf *self, const String *ident);
 static void infer_compound_ident_type(TypeInf *self, const Strings *idents);
 static void infer_call_type(TypeInf *self, const AstCall *call);
 static void handle_known_type(TypeInf *self, const Type *type);
-static bool types_match(const Type *t, const Type *u);
 
 // TODO: reporter for compiler errors which can be invoked outside of gen.c
 
-const Type* infer_type(const Types *types, const Structs *structs, const SymbolChain *symbols,
-                 const AstExpr *expr) {
-    TypeInf inf = {0};
-    inf.coercible = false;
-    inf.types = types;
-    inf.structs = structs;
-    inf.symbols = symbols;
+// TODO: infer_type can either return a pointer to a type in the types array or a symbol type
+// which is messy. This makes me think that the typeid approach is probably more consistent
+// even though it requires an extra line of code whereever it's used. It's also safer in case
+// of reallocations and requires less space than storing the Type struct or possibly
+// even a pointer to it.
+Inferred infer_type(const Types *types, const Structs *structs, const SymbolChain *symbols,
+                       const AstExpr *expr) {
+    TypeInf self = {0};
+    self.coercible = false;
+    self.types = types;
+    self.structs = structs;
+    self.symbols = symbols;
 
-    infer_type_inner(&inf, expr);
+    infer_type_inner(&self, expr);
 
-    return inf.inferred_type;
+    Inferred inferred_type = {0};
+    inferred_type.type = self.inferred_type;
+    inferred_type.is_coercible = self.coercible;
+
+    return inferred_type;
+}
+
+bool types_match(const Type *t, const Type *u) {
+    if (string_cmp(&t->key, &u->key) != 0) return false;
+    if (t->pointer != u->pointer) return false;
+
+    return true;
 }
 
 // An expression of integer literals may evaluate to i32 by default,
@@ -117,9 +132,7 @@ void infer_ident_type(TypeInf *self, const String *ident) {
         TODO("unknown symbol error handling");
     }
 
-    Type *type = &self->types->items[symbol->typeid];
-
-    handle_known_type(self, type);
+    handle_known_type(self, &symbol->type);
 }
 
 void infer_compound_ident_type(TypeInf *self, const Strings *idents) {
@@ -132,9 +145,7 @@ void infer_call_type(TypeInf *self, const AstCall *call) {
         TODO("unknown symbol error handling");
     }
 
-    Type *type = &self->types->items[symbol->typeid];
-
-    handle_known_type(self, type);
+    handle_known_type(self, &symbol->type);
 }
 
 void handle_known_type(TypeInf *self, const Type *type) {
@@ -159,11 +170,4 @@ void handle_known_type(TypeInf *self, const Type *type) {
 
     self->coercible = false;
     self->inferred_type = type;
-}
-
-bool types_match(const Type *t, const Type *u) {
-    if (string_cmp(&t->key, &u->key) != 0) return false;
-    if (t->pointer != u->pointer) return false;
-
-    return true;
 }

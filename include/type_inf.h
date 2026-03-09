@@ -14,6 +14,12 @@ typedef struct {
     bool coercible;
 } TypeInf;
 
-const Type* infer_type(const Types *types, const Structs *structs, const SymbolChain *symbols,
-                 const AstExpr *expr);
+typedef struct {
+    const Type *type;
+    bool is_coercible;
+} Inferred;
+
+Inferred infer_type(const Types *types, const Structs *structs, const SymbolChain *symbols,
+                              const AstExpr *expr);
 bool can_coerce_types(const Type *t, const Type *u);
+bool types_match(const Type *t, const Type *u);

@@ -36,7 +36,7 @@ struct SymbolChain{
     SymbolChain *next;
 };
 
-Symbol *symbol_find(SymbolChain *, const String *key);
+Symbol *symbol_find(const SymbolChain *, const String *key);
 
 Symbol symbol_make_variable(String key, Type type, int local);
 Symbol symbol_make_function(String key, Type type, Types args);

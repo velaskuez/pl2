@@ -2,7 +2,7 @@
 #include "array.h"
 #include "str.h"
 
-Symbol *symbol_find(SymbolChain *self, const String *key) {
+Symbol *symbol_find(const SymbolChain *self, const String *key) {
     if (self == nullptr) return nullptr;
 
     foreach(symbol, &self->head) {
