@@ -5,7 +5,11 @@
 
 typedef struct AstStatement AstStatement;
 
-typedef struct  {
+typedef struct {
+    Position position;
+} AstNode;
+
+typedef struct {
     size_t len, cap;
     AstStatement *items;
 } AstStatements;
@@ -184,6 +188,8 @@ struct AstStatement {
 };
 
 typedef struct {
+    AstNode node;
+
     String name;
     AstParams params;
     AstType *return_type;

@@ -113,7 +113,7 @@ void gen_struct(Generator *self, const AstStruct *ast_struct) {
         // since we're compiling for stack
         // TODO: if we decide to generate IR -> stack (or other backend), then we
         // can move this check later
-        if (&self->types.items[typeid].struct_ && !ast_field->type.pointer) {
+        if (self->types.items[typeid].struct_ && !ast_field->type.pointer) {
             TODO("structs must only contain pointers to other structs");
         }
 

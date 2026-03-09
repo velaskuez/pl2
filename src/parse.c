@@ -69,6 +69,10 @@ static AstBlock parse_block(Parser *self);
 static AstFunction parse_function(Parser *self);
 static AstStruct parse_struct(Parser *self);
 
+static AstNode make_ast_node(Parser *self);
+static void report_unmatched_token_error(Parser *self, TokenKind want);
+static void report_unexpected_token_error(Parser *self);
+
 char *binary_op_str[] = {
     [BinaryOpEq] = "=",
     [BinaryOpNeq] = "!=",
@@ -103,7 +107,7 @@ AstFile parse_file(Parser *self) {
             AstStruct struct_ = parse_struct(self);
             append(&file.structs, struct_);
         } else {
-            panic("unexpected token: %d", current(self).kind);
+            report_unexpected_token_error(self);
             break;
         }
     }
@@ -140,11 +144,9 @@ Token expect(Parser *self, TokenKind want) {
         return token;
     }
 
-    // TODO
-    Token have = current(self);
-    fprintf(stderr, "%d:%d unexpected token: %d, want: %d",
-            have.position.line, have.position.col, have.kind, want);
-    exit(1);
+    report_unmatched_token_error(self, want);
+
+    return (Token){0}; // unreachable
 }
 
 int eof(Parser *self) {
@@ -165,7 +167,7 @@ AstValue parse_value(Parser *self) {
         String number = expect(self, TokenNumber).value;
         value.as.number = strtoll(number.items, nullptr, 10);
     } else {
-        TODO("handle unexpected value");
+        report_unexpected_token_error(self);
     }
 
     return value;
@@ -214,9 +216,7 @@ AstUnaryOp parse_unary_op(Parser *self) {
 
         unary_op.expr = box(parse_expr(self, prefix_prec[UnaryOpNew]));
     } else {
-        Token have = current(self);
-        panic("%d:%d: unexpected unary op: %d",
-                have.position.line, have.position.col, have.kind);
+        report_unexpected_token_error(self);
     }
 
     return unary_op;
@@ -244,9 +244,7 @@ AstExpr parse_prefix_expr(Parser *self) {
         expr.kind = ExprIdent;
         expr.as.ident = expect(self, TokenIdent).value;
     } else {
-        Token have = current(self);
-        panic("%d:%d: unexpected expr prefix: %d",
-                have.position.line, have.position.col, have.kind);
+        report_unexpected_token_error(self);
     }
 
     return expr;
@@ -496,9 +494,12 @@ AstBlock parse_block(Parser *self) {
 }
 
 AstFunction parse_function(Parser *self) {
+    AstNode node = make_ast_node(self);
+
     expect(self, KeywordFn);
 
     AstFunction function = {0};
+    function.node = node;
     function.name = expect(self, TokenIdent).value;
 
     expect(self, TokenLParen);
@@ -534,4 +535,23 @@ AstStruct parse_struct(Parser *self) {
     expect(self, TokenRCurly);
 
     return struct_;
+}
+
+AstNode make_ast_node(Parser *self) {
+    AstNode node = {0};
+    node.position = current(self).position;
+
+    return node;
+}
+
+void report_unexpected_token_error(Parser *self) {
+    Token have = current(self);
+    panic("%d:%d: unexpected token: %d",
+            have.position.line, have.position.col, have.kind);
+}
+
+void report_unmatched_token_error(Parser *self, TokenKind want) {
+    Token have = current(self);
+    panic("%d:%d: unexpected token: %d, want: %d",
+            have.position.line, have.position.col, have.kind, want);
 }
