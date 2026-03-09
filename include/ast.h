@@ -34,6 +34,8 @@ typedef struct {
 } AstParams;
 
 typedef struct {
+    AstNode node;
+
     String name;
     AstParams fields;
 } AstStruct;
@@ -111,7 +113,9 @@ typedef struct {
     AstExprs args;
 } AstCall;
 
-struct AstExpr{
+struct AstExpr {
+    AstNode node;
+
     ExprKind kind;
     union {
         AstBinaryOp binary_op;

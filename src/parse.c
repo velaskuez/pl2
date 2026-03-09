@@ -223,6 +223,8 @@ AstUnaryOp parse_unary_op(Parser *self) {
 }
 
 AstExpr parse_prefix_expr(Parser *self) {
+    AstNode node = make_ast_node(self);
+
     AstExpr expr = {0};
 
     if (eat(self, TokenLParen)) {
@@ -246,6 +248,8 @@ AstExpr parse_prefix_expr(Parser *self) {
     } else {
         report_unexpected_token_error(self);
     }
+
+    expr.node = node;
 
     return expr;
 }
@@ -285,6 +289,8 @@ BinaryOp parse_binary_op(Parser *self) {
 }
 
 AstExpr parse_expr(Parser *self, int prec) {
+    AstNode node = make_ast_node(self);
+
     AstExpr expr = parse_prefix_expr(self);
 
     for (;;) {
@@ -302,6 +308,8 @@ AstExpr parse_expr(Parser *self, int prec) {
         expr = make_binary_op(expr, op, rhs);
         if (op == BinaryOpIndex) expect(self, TokenRBrack);
     }
+
+    expr.node = node;
 
     return expr;
 }
@@ -517,9 +525,12 @@ AstFunction parse_function(Parser *self) {
 }
 
 AstStruct parse_struct(Parser *self) {
+    AstNode node = make_ast_node(self);
+
     AstStruct struct_ = {0};
 
     expect(self, KeywordStruct);
+    struct_.node = node;
     struct_.name = expect(self, TokenIdent).value;
 
     expect(self, TokenLCurly);
