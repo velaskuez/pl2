@@ -179,16 +179,19 @@ void gen_function(Generator *self, const AstFunction *function) {
     TypeID return_typeid = gen_type(self, function->return_type);
     if (return_typeid < 0) TODO("handle unknown type");
 
-    TypeIDs arg_typeids = {0};
+    Type return_type = self->types.items[return_typeid];
+
+    Types arg_types = {0};
     foreach(param, &function->params) {
         TypeID typeid = gen_type(self, &param->type);
         if (typeid < 0) TODO("handle unknown type");
 
-        append(&arg_typeids, typeid);
-        append(&self->symbols->head, symbol_make_variable(param->name, typeid, self->var++));
+        Type type = self->types.items[typeid];
+        append(&arg_types, type);
+        append(&self->symbols->head, symbol_make_variable(param->name, type, next_var(self, &type)));
     }
 
-    append(&self->symbols->head, symbol_make_function(function->name, return_typeid, arg_typeids));
+    append(&self->symbols->head, symbol_make_function(function->name, return_type, arg_types));
 
     gen_block(self, &function->block);
 
@@ -240,28 +243,27 @@ void gen_let(Generator *self, const AstLet *let) {
         return;
     }
 
-    // TODO: this is messy, update symbol to point to type
-    TypeID typeid = -1;
-    const Type *type = &self->types.items[typeid];
+    const Type *type = nullptr;
     if (let->type != nullptr) {
-        typeid = gen_type(self, let->type);
+        TypeID typeid = gen_type(self, let->type);
         if (typeid < 0) {
             add_compile_error(self, "undefined type: %s%.*s",
                     let->type->pointer ? "*" : "",
                     STRING_FMT_ARGS(&let->type->name));
             return;
         }
+
         type = &self->types.items[typeid];
     } else {
         type = gen_infer_type(self, let->expr);
-        if (typeid < 0) {
+        if (type == nullptr) {
             add_compile_error(self, "cannot infer type of expression");
             return;
         }
     }
 
     int var = next_var(self, type);
-    append(&self->symbols->head, symbol_make_variable(let->name, typeid, var));
+    append(&self->symbols->head, symbol_make_variable(let->name, *type, var));
 
     if (let->expr == nullptr) return;
 

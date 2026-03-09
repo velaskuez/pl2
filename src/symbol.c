@@ -14,22 +14,22 @@ Symbol *symbol_find(SymbolChain *self, const String *key) {
     return symbol_find(self->next, key);
 }
 
-Symbol symbol_make_variable(String key, TypeID typeid, int local) {
+Symbol symbol_make_variable(String key, Type type, int local) {
     Symbol symbol = {0};
     symbol.key = key;
     symbol.kind = SymbolVariable;
-    symbol.typeid = typeid;
+    symbol.type = type;
     symbol.as.local = local;
 
     return symbol;
 }
 
-Symbol symbol_make_function(String key, TypeID typeid, TypeIDs args) {
+Symbol symbol_make_function(String key, Type type, Types args) {
     Symbol symbol = {0};
     symbol.key = key;
     symbol.kind = SymbolVariable;
-    symbol.typeid = typeid;
-    symbol.as.args = args;
+    symbol.type = type;
+    symbol.as.arg_types = args;
 
     return symbol;
 }

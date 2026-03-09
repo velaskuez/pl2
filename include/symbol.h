@@ -18,9 +18,9 @@ typedef enum {
 typedef struct {
     SymbolKind kind;
     String key;
-    TypeID typeid;
+    Type type;
     union {
-        TypeIDs args;
+        Types arg_types;
         int local;
     } as;
 } Symbol;
@@ -38,5 +38,5 @@ struct SymbolChain{
 
 Symbol *symbol_find(SymbolChain *, const String *key);
 
-Symbol symbol_make_variable(String key, TypeID typeid, int local);
-Symbol symbol_make_function(String key, TypeID typeid, TypeIDs args);
+Symbol symbol_make_variable(String key, Type type, int local);
+Symbol symbol_make_function(String key, Type type, Types args);
