@@ -18,6 +18,7 @@ static void free_scoped_symbols(Generator *self);
 static void add_compile_error(Generator *self, const char* fmt, ...) __attribute__((format(printf, 2, 3)));
 static void add_internal_error(Generator *self, const char* fmt, ...) __attribute__((format(printf, 2, 3)));
 static int next_var(Generator *self, const Type *type);
+static const Type* gen_infer_type(Generator *self, const AstExpr *expr);
 static int printf_with_newline(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
 
 static TypeID gen_type(Generator *self, const AstType *ast_type);
@@ -112,7 +113,7 @@ void gen_struct(Generator *self, const AstStruct *ast_struct) {
         // since we're compiling for stack
         // TODO: if we decide to generate IR -> stack (or other backend), then we
         // can move this check later
-        if (typeid > I8PtrTypeID && !ast_field->type.pointer) {
+        if (&self->types.items[typeid].struct_ && !ast_field->type.pointer) {
             TODO("structs must only contain pointers to other structs");
         }
 
@@ -161,9 +162,11 @@ void gen_struct(Generator *self, const AstStruct *ast_struct) {
     type.pointer = false;
     type.alignment = 8;
     type.slotsize = Invalid;
+    type.struct_ = true;
     append(&self->types, type);
 
     struct_.id = self->types.len-1;
+    append(&self->structs, struct_);
 
     return;
 }
@@ -237,7 +240,9 @@ void gen_let(Generator *self, const AstLet *let) {
         return;
     }
 
+    // TODO: this is messy, update symbol to point to type
     TypeID typeid = -1;
+    const Type *type = &self->types.items[typeid];
     if (let->type != nullptr) {
         typeid = gen_type(self, let->type);
         if (typeid < 0) {
@@ -246,15 +251,14 @@ void gen_let(Generator *self, const AstLet *let) {
                     STRING_FMT_ARGS(&let->type->name));
             return;
         }
+        type = &self->types.items[typeid];
     } else {
-        typeid = infer_type(&self->types, self->symbols, let->expr);
+        type = gen_infer_type(self, let->expr);
         if (typeid < 0) {
             add_compile_error(self, "cannot infer type of expression");
             return;
         }
     }
-
-    Type *type = &self->types.items[typeid];
 
     int var = next_var(self, type);
     append(&self->symbols->head, symbol_make_variable(let->name, typeid, var));
@@ -267,13 +271,12 @@ void gen_let(Generator *self, const AstLet *let) {
 }
 
 void gen_statement_expr(Generator *self, const AstExpr *expr) {
-    TypeID typeid = infer_type(&self->types, self->symbols, expr);
-    if (typeid < 0) {
+    const Type *type = gen_infer_type(self, expr);
+    if (type == nullptr) {
         add_compile_error(self, "cannot infer type of expression");
         return;
     }
 
-    Type *type = &self->types.items[typeid];
     gen_expr(self, expr, type);
 }
 
@@ -286,13 +289,12 @@ void gen_return(Generator *self, const AstExpr *return_) {
         return;
     }
 
-    TypeID typeid = infer_type(&self->types, self->symbols, return_);
-    if (typeid < 0) {
+    const Type *type = gen_infer_type(self, return_);
+    if (type < 0) {
         add_compile_error(self, "could not infer type of expression");
         return;
     }
 
-    Type *type = &self->types.items[typeid];
     gen_expr(self, return_, type);
     self->write_fn("ret.%s", ret_ext(type));
 
@@ -422,6 +424,10 @@ int next_var(Generator *self, const Type *type) {
     }
 
     return var;
+}
+
+const Type* gen_infer_type(Generator *self, const AstExpr *expr) {
+    return infer_type(&self->types, &self->structs, self->symbols, expr);
 }
 
 int printf_with_newline(const char* fmt, ...) {

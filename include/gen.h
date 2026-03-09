@@ -6,6 +6,7 @@
 
 typedef struct {
     Types types;
+    Structs structs;
     SymbolChain *symbols;
 
     int var; // For allocating temporary variables

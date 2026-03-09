@@ -25,6 +25,7 @@ typedef struct {
 typedef struct {
     String key;
     bool pointer;
+    bool struct_;
     // Size of the type in bytes
     // For primitive types (int, long, char), size = realsize
     // If type is a pointer, size = 8, realsize = the size to allocate
