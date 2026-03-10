@@ -484,7 +484,7 @@ AstStatements parse_statements(Parser *self) {
     while (!eof(self) && !at(self, TokenRCurly)) {
         AstStatement statement = parse_statement(self);
         append(&statements, statement);
-        expect(self, TokenSemicolon);
+        while (eat(self, TokenSemicolon)) {}
     }
 
     return statements;
