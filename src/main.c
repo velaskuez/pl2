@@ -16,7 +16,10 @@ int main() {
     }
 
     String src = string_from_file(fd);
+
+    // TODO: something like token_collect_from_file(filename) would be better
     Tokeniser tokeniser = {0};
+    tokeniser.filename = string_from_cstr("test.pl2");
     tokeniser.src = src;
     if (token_collect(&tokeniser) < 0) {
         panic("%d:%d: unexpected token", tokeniser.position.line, tokeniser.position.col);
@@ -24,6 +27,7 @@ int main() {
 
     Parser parser = {0};
     parser.tokens = tokeniser.tokens;
+    parser.filename = tokeniser.filename;
     AstFile file = parse_file(&parser);
 
     // ast_fmt_file(&printf_writer, &file);

@@ -201,11 +201,6 @@ typedef struct {
 } AstFunction;
 
 typedef struct {
-    Tokens tokens;
-    size_t position;
-} Parser;
-
-typedef struct {
     size_t len, cap;
     AstStruct *items;
 } AstStructs;
@@ -219,5 +214,11 @@ typedef struct {
     AstStructs structs;
     AstFunctions functions;
 } AstFile;
+
+typedef struct {
+    String filename;
+    Tokens tokens;
+    size_t position;
+} Parser;
 
 AstFile parse_file(Parser *self);

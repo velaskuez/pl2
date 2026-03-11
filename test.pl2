@@ -27,7 +27,7 @@ fn myfn() void {
         b = 4;
         if 2 + 2 == 4 {
             b = a;
-        }
+        }+
     } else if 1 < 2 {
         while a < b {
             a = a - b;

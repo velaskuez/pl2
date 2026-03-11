@@ -77,6 +77,7 @@ typedef struct {
 } Tokens;
 
 typedef struct {
+    String filename;
     String src;
     size_t i;
     Position position;

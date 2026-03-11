@@ -557,12 +557,14 @@ AstNode make_ast_node(Parser *self) {
 
 void report_unexpected_token_error(Parser *self) {
     Token have = current(self);
-    panic("%d:%d: unexpected token: %s",
-            have.position.line, have.position.col, token_str[have.kind]);
+    fprintf(stderr, "%.*s:%d:%d: unexpected token: %s\n",
+            STRING_FMT_ARGS(&self->filename), have.position.line, have.position.col, token_str[have.kind]);
+    exit(1);
 }
 
 void report_unmatched_token_error(Parser *self, TokenKind want) {
     Token have = current(self);
-    panic("%d:%d: unexpected token: %s, want: %s",
-            have.position.line, have.position.col, token_str[have.kind], token_str[want]);
+    fprintf(stderr, "%.*s:%d:%d: unexpected token: %s, want: %s\n",
+            STRING_FMT_ARGS(&self->filename), have.position.line, have.position.col, token_str[have.kind], token_str[want]);
+    exit(1);
 }
