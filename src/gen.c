@@ -26,6 +26,10 @@ static void gen_function(Generator *self, const AstFunction *function);
 static void gen_block(Generator *self, const AstBlock *block);
 static void gen_statements(Generator *self, const AstStatements *statements);
 static void gen_statement(Generator *self, const AstStatement *statement);
+static void gen_location(Generator *self, const AstLocation *location, const Inferred *inferred);
+static void gen_location_ident(Generator *self, const String *ident, const Inferred *inferred);
+static void gen_location_compound_ident(Generator *self, const Strings *idents, const Inferred *inferred);
+static void gen_location_index(Generator *self, const AstIndex *index, const Inferred *inferred);
 static void gen_assign(Generator *self, const AstAssign *assign);
 static void gen_let(Generator *self, const AstLet *let);
 static void gen_statement_expr(Generator *self, const AstExpr *return_);
@@ -54,6 +58,8 @@ void gen_init(Generator *self) {
 }
 
 void gen_file(Generator *self, const AstFile *file) {
+    self->write_fn(".entry main\n");
+
     foreach(struct_, &file->structs) {
         gen_struct(self, struct_);
     }
@@ -192,6 +198,8 @@ void gen_function(Generator *self, const AstFunction *function) {
 
     append(&self->symbols->head, symbol_make_function(function->name, return_type, arg_types));
 
+    self->write_fn("%.*s:", STRING_FMT_ARGS(&function->name));
+
     gen_block(self, &function->block);
 
     self->var = var; // Reset
@@ -232,7 +240,50 @@ void gen_statement(Generator *self, const AstStatement *statement) {
     }
 }
 
+void gen_location(Generator *self, const AstLocation *location, const Inferred *inferred) {
+    switch (location->kind) {
+        case LocationIdent:
+            gen_location_ident(self, &location->as.ident, inferred);
+            break;
+        case LocationCompoundIdent:
+            break;
+        case LocationIndex:
+            break;
+    }
+}
+
+void gen_location_ident(Generator *self, const String *ident, const Inferred *inferred) {
+    Symbol *symbol = symbol_find(self->symbols, ident);
+    if (symbol == nullptr) {
+        report_error(&self->report, "unknown identifier %.*s", STRING_FMT_ARGS(ident));
+        return;
+    }
+
+    if (symbol->kind == SymbolFunction) {
+        report_error(&self->report, "reassignment of functions not supported");
+        return;
+    }
+
+    if (!types_match(inferred->type, &symbol->type)) {
+        report_error(&self->report, "assignment to identifier type mismatch");
+        return;
+    }
+
+    self->write_fn("store%s %d", op_ext(&symbol->type), symbol->as.local);
+}
+
 void gen_assign(Generator *self, const AstAssign *assign) {
+    Inferred inferred = gen_infer_type(self, &assign->expr);
+    if (inferred.type == nullptr) {
+        report_error(&self->report, "cannot infer type of expression");
+        return;
+    }
+
+    // TODO: Actually, we first need to check the locations type, then
+    // maybe coerce the inferred type, and then generate code
+    gen_expr(self, &assign->expr, inferred.type);
+    gen_location(self, &assign->location, &inferred);
+
     return;
 }
 
