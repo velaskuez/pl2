@@ -27,7 +27,7 @@ Symbol symbol_make_variable(String key, Type type, int local) {
 Symbol symbol_make_function(String key, Type type, Types args) {
     Symbol symbol = {0};
     symbol.key = key;
-    symbol.kind = SymbolVariable;
+    symbol.kind = SymbolFunction;
     symbol.type = type;
     symbol.as.arg_types = args;
 
