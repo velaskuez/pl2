@@ -62,6 +62,8 @@ typedef enum {
     TokenEof,
 } TokenKind;
 
+char *token_str[TokenEof+1];
+
 typedef struct {
     TokenKind kind;
     String value;

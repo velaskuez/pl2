@@ -28,6 +28,46 @@ static void skip_line(Tokeniser *self);
 static void extend_while(Tokeniser *self, String *str, int (condition)(char));
 static TokenKind check_keyword(const String *word);
 
+char *token_str[] = {
+    [TokenChar] = "CHAR",
+    [TokenNumber] = "NUMBER",
+    [TokenString] = "STRING",
+
+    [TokenIdent] = "IDENT",
+
+    [KeywordFn] = "fn",
+    [KeywordIf] = "if",
+    [KeywordElse] = "else",
+    [KeywordReturn] = "return",
+    [KeywordStruct] = "struct",
+    [KeywordWhile] = "while",
+    [KeywordSizeof] = "sizeof",
+    [KeywordNew] = "new",
+    [KeywordLet] = "let",
+
+    [TokenComma] = ",",
+    [TokenDot] = ".",
+    [TokenEqual] = "=",
+    [TokenGt] = ">",
+    [TokenLCurly] = "{",
+    [TokenLBrack] = "[",
+    [TokenLParen] = "(",
+    [TokenAmpersand] = "&",
+    [TokenBar] = "|",
+    [TokenLt] = "<",
+    [TokenMinus] = "-",
+    [TokenExclamation] = "!",
+    [TokenPlus] = "+",
+    [TokenRCurly] = "}",
+    [TokenRBrack] = "]",
+    [TokenRParen] = ")",
+    [TokenSemicolon] = ";",
+    [TokenSlash] = "/",
+    [TokenStar] = "*",
+
+    [TokenEof] = "EOF",
+};
+
 int token_collect(Tokeniser *self) {
     for (;;) {
         Position position = self->position;

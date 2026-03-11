@@ -91,7 +91,7 @@ char *binary_op_str[] = {
     [BinaryOpIndex] = "[]",
 };
 
-char * unary_op_str[] = {
+char *unary_op_str[] = {
     [UnaryOpSizeOf] = "sizeof",
     [UnaryOpNew] = "new",
 };
@@ -557,12 +557,12 @@ AstNode make_ast_node(Parser *self) {
 
 void report_unexpected_token_error(Parser *self) {
     Token have = current(self);
-    panic("%d:%d: unexpected token: %d",
-            have.position.line, have.position.col, have.kind);
+    panic("%d:%d: unexpected token: %s",
+            have.position.line, have.position.col, token_str[have.kind]);
 }
 
 void report_unmatched_token_error(Parser *self, TokenKind want) {
     Token have = current(self);
-    panic("%d:%d: unexpected token: %d, want: %d",
-            have.position.line, have.position.col, have.kind, want);
+    panic("%d:%d: unexpected token: %s, want: %s",
+            have.position.line, have.position.col, token_str[have.kind], token_str[want]);
 }
