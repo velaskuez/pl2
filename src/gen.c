@@ -461,6 +461,32 @@ void gen_binary_op(Generator *self, const AstBinaryOp *binary_op, const Type *ty
 }
 
 void gen_unary_op_sizeof(Generator *self, const AstExpr *expr) {
+    Inferred inferred = {0};
+
+    switch (expr->kind) {
+        case ExprIdent:
+            // The identifer could be a type
+            const String *ident = &expr->as.ident;
+            foreach(it, &self->types) {
+                if (string_cmp(&it->key, ident) == 0) {
+                    inferred.type = it;
+                }
+            }
+
+            if (inferred.type != nullptr) break;
+
+            // fallthrough
+        default:
+            inferred = get_inferred_type(self, expr);
+            if (inferred.type == nullptr) {
+                report_error(&self->report, "cannot infer type of expression");
+            }
+            break;
+    }
+
+    self->write_fn("push.d %d", inferred.type->realsize);
+
+    return;
 }
 
 void gen_unary_op_new(Generator *self, const AstExpr *expr, const Type *type) {
@@ -474,7 +500,7 @@ void gen_unary_op_new(Generator *self, const AstExpr *expr, const Type *type) {
 void gen_unary_op(Generator *self, const AstUnaryOp *unary_op, const Type *type) {
     switch (unary_op->op) {
         case UnaryOpSizeOf:
-            self->write_fn("todo: sizeof");
+            gen_unary_op_sizeof(self, unary_op->expr);
             break;
         case UnaryOpNew:
             gen_unary_op_new(self, unary_op->expr, type);
@@ -491,9 +517,7 @@ void gen_value(Generator *self, const AstValue *value, const Type *type) {
             return;
         }
 
-        // TODO: if there are duplicate string literals,
-        // then we could just create one string and reuse
-        // the label
+        // TODO: keep track of seen string literals for reuse
         int label = self->string++;
         self->write_fn(".data s%d .string \"%.*s\"", label, STRING_FMT_ARGS(&value->as.string));
         self->write_fn("dataptr s%d", label);
