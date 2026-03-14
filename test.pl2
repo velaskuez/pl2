@@ -4,7 +4,15 @@ struct Link {
 }
 
 struct List {
-    value *i8;
+    value i8;
+    value i8;
+    value i8;
+    value i8;
+    value i8;
+    value i8;
+    value i8;
+    value i8;
+    value i8;
     link *Link;
 }
 
@@ -17,7 +25,7 @@ fn main() void {
 
     let d *Link = new Link;
 
-    let e = sizeof Link;
+    let e = sizeof List;
 
     // let a *int = 3;
     // let b = 4;

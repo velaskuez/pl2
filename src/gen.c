@@ -147,7 +147,7 @@ void gen_struct(Generator *self, const AstStruct *ast_struct) {
 
         // If padding < 8, then we may have room to add in the next field
         padding = 8 - (offset % 8);
-        if (padding == 0) {
+        if (padding == 0 || padding == 8) {
             continue;
         }
 
