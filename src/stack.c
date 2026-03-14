@@ -2,6 +2,8 @@
 #include "util.h"
 
 const char *op_ext(const Type *type) {
+    // TODO: .b exists
+
     switch (type->slotsize) {
     case Invalid:
         panic("attempt to call op_ext() on unsized type");
@@ -10,7 +12,7 @@ const char *op_ext(const Type *type) {
     case DoubleSlot:
         return ".d";
     default:
-        return "shouldn't get here";
+        panic("unreachable");
     }
 }
 

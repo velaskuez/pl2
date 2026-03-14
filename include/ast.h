@@ -2,6 +2,7 @@
 
 #include "str.h"
 #include "token.h"
+#include "int.h"
 
 typedef struct AstStatement AstStatement;
 
@@ -99,7 +100,7 @@ typedef struct {
     union {
         String string;
         int char_;
-        long number;
+        i64 number;
     } as;
 } AstValue;
 

@@ -50,11 +50,14 @@ bool types_match(const Type *t, const Type *u) {
 // An expression of integer literals may evaluate to i32 by default,
 // but a let binding may specify the type as a i8 or i64, which is permitted
 // Some coercions aren't permitted such as struct to different struct, or pointer to non-pointer
+// TODO: maybe T should be Inferred? Could tidy up some of the logic in gen.c
 bool can_coerce_types(const Type *t, const Type *u) {
     if (types_match(t, u)) return true;
 
-    if (t->struct_ || u->struct_) return false;
+    // Can T be coerced to U?
+    if (t->struct_id > 0 || u->struct_id > 0) return false;
     if (t->pointer != u->pointer) return false;
+    if (t->realsize > u->realsize) return false;
 
     return true;
 }
@@ -95,6 +98,12 @@ void infer_value_type(TypeInf *self, const AstValue *value) {
     Type *type = nullptr;
     switch (value->kind) {
         case ValueNumber:
+            // TODO: actually look at the number to assign the smallest
+            // possible type. This way if an identifier has type u8
+            // and it is mixed in an expression with a literal, then
+            // the literal can be simply matched/coerced
+            // I think it might be useful to store the sign as it's own
+            // flag rather than using just i64
             type = &self->types->items[I32TypeID];
             break;
         case ValueString:

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "str.h"
+#include "int.h"
 
 typedef enum {
     Invalid = 0,
@@ -8,7 +9,7 @@ typedef enum {
     DoubleSlot,
 } SlotSize;
 
-typedef long TypeID ; // The index into the Types array
+typedef long TypeID; // The index into the Types array
 typedef enum TypeID {
     VoidTypeID,
     I8TypeID,
@@ -25,7 +26,7 @@ typedef struct {
 typedef struct {
     String key;
     bool pointer;
-    bool struct_;
+    i64 struct_id;
     // Size of the type in bytes
     // For primitive types (int, long, char), size = realsize
     // If type is a pointer, size = 8, realsize = the size to allocate
@@ -40,6 +41,7 @@ typedef struct {
 } Types;
 
 typedef struct {
+    String key;
     TypeID id;     // Index into the types array
     size_t offset; // The offset from the base pointer
 } StructField;
@@ -50,8 +52,8 @@ typedef struct {
 } StructFields;
 
 typedef struct {
-    TypeID id;                // Index into the types array
-    StructFields field_types; // Index into the types array for each field
+    TypeID id;           // Index into the types array
+    StructFields fields; // Index into the types array for each field
 } Struct;
 
 typedef struct {
@@ -59,46 +61,51 @@ typedef struct {
     Struct *items;
 } Structs;
 
-#define PRIMITIVE_TYPES \
-    { \
-        [VoidTypeID] = { \
+#define PRIMITIVE_TYPES                      \
+    {                                        \
+        [VoidTypeID] = {                     \
             .key = string_from_cstr("void"), \
-            .pointer = false, \
-            .size = 0, \
-            .realsize = 0, \
-            .slotsize = Invalid, \
-            .alignment = 0, \
-        }, \
-        [I8TypeID] = { \
-            .key = string_from_cstr("i8"), \
-            .pointer = false, \
-            .size = 1, \
-            .realsize = 1, \
-            .slotsize = SingleSlot, \
-            .alignment = 1, \
-        }, \
-        [I32TypeID] = { \
-            .key = string_from_cstr("i32"), \
-            .pointer = false, \
-            .size = 4, \
-            .realsize = 4, \
-            .slotsize = SingleSlot, \
-            .alignment = 4, \
-        }, \
-        [I64TypeID] = { \
-            .key = string_from_cstr("i64"), \
-            .pointer = false, \
-            .size = 8, \
-            .realsize = 8, \
-            .slotsize = DoubleSlot, \
-            .alignment = 8, \
-        }, \
-        [I8PtrTypeID] = { \
-            .key = string_from_cstr("i8"), \
-            .pointer = true, \
-            .size = 8, \
-            .realsize = 1, \
-            .slotsize = DoubleSlot, \
-            .alignment = 1, \
-        } \
-    } \
+            .pointer = false,                \
+            .size = 0,                       \
+            .realsize = 0,                   \
+            .slotsize = Invalid,             \
+            .alignment = 0,                  \
+            .struct_id = -1,                 \
+        },                                   \
+        [I8TypeID] = {                       \
+            .key = string_from_cstr("i8"),   \
+            .pointer = false,                \
+            .size = 1,                       \
+            .realsize = 1,                   \
+            .slotsize = SingleSlot,          \
+            .alignment = 1,                  \
+            .struct_id = -1,                 \
+        },                                   \
+        [I32TypeID] = {                      \
+            .key = string_from_cstr("i32"),  \
+            .pointer = false,                \
+            .size = 4,                       \
+            .realsize = 4,                   \
+            .slotsize = SingleSlot,          \
+            .alignment = 4,                  \
+            .struct_id = -1,                 \
+        },                                   \
+        [I64TypeID] = {                      \
+            .key = string_from_cstr("i64"),  \
+            .pointer = false,                \
+            .size = 8,                       \
+            .realsize = 8,                   \
+            .slotsize = DoubleSlot,          \
+            .alignment = 8,                  \
+            .struct_id = -1,                 \
+        },                                   \
+        [I8PtrTypeID] = {                    \
+            .key = string_from_cstr("i8"),   \
+            .pointer = true,                 \
+            .size = 8,                       \
+            .realsize = 1,                   \
+            .slotsize = DoubleSlot,          \
+            .alignment = 1,                  \
+            .struct_id = -1,                 \
+        }                                    \
+    }

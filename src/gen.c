@@ -17,7 +17,11 @@
 static void init_scoped_symbols(Generator *self);
 static void free_scoped_symbols(Generator *self);
 static int next_var(Generator *self, const Type *type);
-static Inferred gen_infer_type(Generator *self, const AstExpr *expr);
+static Inferred get_inferred_type(Generator *self, const AstExpr *expr);
+static Type *get_location_type_ident(Generator *self, const String *ident);
+static Type *get_location_type_compound_ident(Generator *self, const Strings *idents);
+static Type *get_location_type_index(Generator *self, const AstIndex *index);
+static Type *get_location_type(Generator *self, const AstLocation *location);
 static int printf_with_newline(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
 
 static TypeID gen_type(Generator *self, const AstType *ast_type);
@@ -26,10 +30,10 @@ static void gen_function(Generator *self, const AstFunction *function);
 static void gen_block(Generator *self, const AstBlock *block);
 static void gen_statements(Generator *self, const AstStatements *statements);
 static void gen_statement(Generator *self, const AstStatement *statement);
-static void gen_location(Generator *self, const AstLocation *location, const Inferred *inferred);
-static void gen_location_ident(Generator *self, const String *ident, const Inferred *inferred);
-static void gen_location_compound_ident(Generator *self, const Strings *idents, const Inferred *inferred);
-static void gen_location_index(Generator *self, const AstIndex *index, const Inferred *inferred);
+static void gen_location(Generator *self, const AstLocation *location);
+static void gen_location_ident(Generator *self, const String *ident);
+static void gen_location_compound_ident(Generator *self, const Strings *idents);
+static void gen_location_index(Generator *self, const AstIndex *index);
 static void gen_assign(Generator *self, const AstAssign *assign);
 static void gen_let(Generator *self, const AstLet *let);
 static void gen_statement_expr(Generator *self, const AstExpr *return_);
@@ -100,6 +104,7 @@ TypeID gen_type(Generator *self, const AstType *ast_type) {
     type.size = 8;
     type.slotsize = DoubleSlot;
     type.alignment = 8;
+    type.struct_id = self->types.items[foundid].struct_id;
     append(&self->types, type);
 
     return self->types.len-1;
@@ -118,22 +123,23 @@ void gen_struct(Generator *self, const AstStruct *ast_struct) {
         // since we're compiling for stack
         // TODO: if we decide to generate IR -> stack (or other backend), then we
         // can move this check later
-        if (self->types.items[typeid].struct_ && !ast_field->type.pointer) {
+        if (self->types.items[typeid].struct_id > 0 && !ast_field->type.pointer) {
             TODO("structs must only contain pointers to other structs");
         }
 
         // We need to resolve all of the field types before we can calculate
         // the offsets of them
         StructField field = {0};
+        field.key = ast_field->name;
         field.id = typeid;
         // field.offset = later
-        append(&struct_.field_types, field);
+        append(&struct_.fields, field);
     }
 
     size_t offset = 0;
     size_t padding = 0;
-    for (size_t i = 0; i < struct_.field_types.len; i++) {
-        StructField *it = &struct_.field_types.items[i];
+    for (size_t i = 0; i < struct_.fields.len; i++) {
+        StructField *it = &struct_.fields.items[i];
 
         it->offset = offset;
         offset += self->types.items[it->id].size;
@@ -144,7 +150,7 @@ void gen_struct(Generator *self, const AstStruct *ast_struct) {
             continue;
         }
 
-        if (i == struct_.field_types.len-1) {
+        if (i == struct_.fields.len-1) {
             // Last element - the size of the struct will be a mulitple of 8
             offset += padding;
             break;
@@ -152,7 +158,7 @@ void gen_struct(Generator *self, const AstStruct *ast_struct) {
 
         // If the next type has the same alignment, then continue
         // Otherwise, add padding
-        StructField *next = &struct_.field_types.items[i+1];
+        StructField *next = &struct_.fields.items[i+1];
         if (self->types.items[it->id].alignment == self->types.items[next->id].alignment) {
             continue;
         }
@@ -167,7 +173,7 @@ void gen_struct(Generator *self, const AstStruct *ast_struct) {
     type.pointer = false;
     type.alignment = 8;
     type.slotsize = Invalid;
-    type.struct_ = true;
+    type.struct_id = self->structs.len;
     append(&self->types, type);
 
     struct_.id = self->types.len-1;
@@ -240,49 +246,92 @@ void gen_statement(Generator *self, const AstStatement *statement) {
     }
 }
 
-void gen_location(Generator *self, const AstLocation *location, const Inferred *inferred) {
+void gen_location(Generator *self, const AstLocation *location) {
     switch (location->kind) {
         case LocationIdent:
-            gen_location_ident(self, &location->as.ident, inferred);
+            gen_location_ident(self, &location->as.ident);
             break;
         case LocationCompoundIdent:
+            gen_location_compound_ident(self, &location->as.compound_ident);
             break;
         case LocationIndex:
+            gen_location_index(self, &location->as.index);
             break;
     }
 }
 
-void gen_location_ident(Generator *self, const String *ident, const Inferred *inferred) {
+void gen_location_ident(Generator *self, const String *ident) {
     Symbol *symbol = symbol_find(self->symbols, ident);
-    if (symbol == nullptr) {
-        report_error(&self->report, "unknown identifier %.*s", STRING_FMT_ARGS(ident));
-        return;
-    }
 
-    if (symbol->kind == SymbolFunction) {
-        report_error(&self->report, "reassignment of functions not supported");
-        return;
-    }
-
-    if (!types_match(inferred->type, &symbol->type)) {
-        report_error(&self->report, "assignment to identifier type mismatch");
-        return;
-    }
+    // We should have done these checks earlier whilst type-checking the assignment value
+    assert(symbol != nullptr);
+    assert(symbol->kind == SymbolVariable);
 
     self->write_fn("store%s %d", op_ext(&symbol->type), symbol->as.local);
 }
 
+void gen_location_compound_ident(Generator *self, const Strings *idents) {
+    Symbol *symbol = symbol_find(self->symbols, &idents->items[0]);
+
+    // We should have done these checks earlier whilst type-checking the assignment value
+    assert(symbol != nullptr);
+    assert(symbol->kind == SymbolVariable);
+
+    // TODO: rethink of the type setup required
+    // u64 offset = resolve_nested_field_offset(self, idents);
+
+    // self->write_fn("load.d %d", symbol->as.local);
+    // self->write_fn("push.d %d", offset);
+    // self->write_fn("astore.%s", op_ext(type));
+
+    return;
+}
+
+void gen_location_index(Generator *self, const AstIndex *index) {
+    Symbol *symbol = symbol_find(self->symbols, &index->ident);
+
+    // We should have done these checks earlier whilst type-checking the assignment value
+    assert(symbol != nullptr);
+    assert(symbol->kind == SymbolVariable);
+
+    Type type = symbol->type;
+    type.pointer = false;
+
+    Type *index_type = &self->types.items[I64TypeID];
+    Inferred inferred = get_inferred_type(self, &index->expr);
+
+    if (types_match(inferred.type, index_type) || (inferred.is_coercible && can_coerce_types(inferred.type, index_type))) {
+        // OK
+    } else {
+        report_error(&self->report, "index expression must be coercible to i64");
+        return;
+    }
+
+    self->write_fn("load.d %d", symbol->as.local);
+    gen_expr(self, &index->expr, index_type);
+    self->write_fn("mul.d %d", type.realsize);
+    self->write_fn("astore.%s", op_ext(&type));
+
+}
+
 void gen_assign(Generator *self, const AstAssign *assign) {
-    Inferred inferred = gen_infer_type(self, &assign->expr);
+    Inferred inferred = get_inferred_type(self, &assign->expr);
     if (inferred.type == nullptr) {
         report_error(&self->report, "cannot infer type of expression");
         return;
     }
 
-    // TODO: Actually, we first need to check the locations type, then
-    // maybe coerce the inferred type, and then generate code
-    gen_expr(self, &assign->expr, inferred.type);
-    gen_location(self, &assign->location, &inferred);
+    Type *type = get_location_type(self, &assign->location);
+
+    if (types_match(inferred.type, type) || (inferred.is_coercible && can_coerce_types(inferred.type, type))) {
+        // OK
+    } else {
+        report_error(&self->report, "assignment type mismatch");
+        return;
+    }
+
+    gen_expr(self, &assign->expr, type);
+    gen_location(self, &assign->location);
 
     return;
 }
@@ -293,7 +342,7 @@ void gen_let(Generator *self, const AstLet *let) {
         return;
     }
 
-    Inferred inferred = gen_infer_type(self, let->expr);
+    Inferred inferred = get_inferred_type(self, let->expr);
     if (inferred.type == nullptr) {
         report_error(&self->report, "cannot infer type of expression");
         return;
@@ -335,7 +384,7 @@ void gen_let(Generator *self, const AstLet *let) {
 }
 
 void gen_statement_expr(Generator *self, const AstExpr *expr) {
-    Inferred inferred = gen_infer_type(self, expr);
+    Inferred inferred = get_inferred_type(self, expr);
     if (inferred.type == nullptr) {
         report_error(&self->report, "cannot infer type of expression");
         return;
@@ -353,7 +402,7 @@ void gen_return(Generator *self, const AstExpr *return_) {
         return;
     }
 
-    Inferred inferred = gen_infer_type(self, return_);
+    Inferred inferred = get_inferred_type(self, return_);
     if (inferred.type == nullptr) {
         report_error(&self->report, "could not infer type of expression");
         return;
@@ -485,8 +534,96 @@ int next_var(Generator *self, const Type *type) {
     return var;
 }
 
-Inferred gen_infer_type(Generator *self, const AstExpr *expr) {
+Inferred get_inferred_type(Generator *self, const AstExpr *expr) {
     return infer_type(&self->types, &self->structs, self->symbols, expr);
+}
+
+Type *get_location_type_ident(Generator *self, const String *ident) {
+    Symbol *symbol = symbol_find(self->symbols, ident);
+    if (symbol == nullptr) {
+        report_error(&self->report, "unknown identifier %.*s", STRING_FMT_ARGS(ident));
+        return nullptr;
+    }
+
+    if (symbol->kind != SymbolVariable) {
+        report_error(&self->report, "only assignment of variables currently supported");
+        return nullptr;
+    }
+
+    return &symbol->type;
+}
+
+Type *get_location_type_compound_ident(Generator *self, const Strings *idents) {
+    Symbol *symbol = symbol_find(self->symbols, &idents->items[0]);
+    if (symbol == nullptr) {
+        report_error(&self->report, "unknown identifier %.*s", STRING_FMT_ARGS(&idents->items[0]));
+        return nullptr;
+    }
+
+    if (symbol->kind != SymbolVariable) {
+        report_error(&self->report, "only assignment of variables currently supported");
+        return nullptr;
+    }
+
+    assert(symbol->type.struct_id > 0 && (u64)symbol->type.struct_id < self->structs.len);
+
+    Struct *struct_ = &self->structs.items[symbol->type.struct_id];
+    foreach(field, &struct_->fields) {
+        if (string_cmp(&field->key, &idents->items[1]) != 0) continue;
+
+        assert(field->id > 0 && (u64)field->id < self->types.len);
+
+        Type *type = &self->types.items[field->id];
+        if (type->struct_id > 0) {
+            TODO("recursively resolve type of compound identifier");
+        }
+
+        return type;
+    }
+
+    report_error(&self->report, "could not resolve type of compound identifier");
+
+    return nullptr;
+}
+
+Type *get_location_type_index(Generator *self, const AstIndex *index) {
+    Symbol *symbol = symbol_find(self->symbols, &index->ident);
+
+    if (symbol->kind != SymbolVariable) {
+        report_error(&self->report, "only assignment of variables currently supported");
+        return nullptr;
+    }
+
+    if (!symbol->type.pointer) {
+        report_error(&self->report, "cannot index into %.*s", STRING_FMT_ARGS(&index->ident));
+        return nullptr;
+    }
+
+
+    // Find the non-pointer type
+    // TODO: as part of the type refactor it would be worth
+    // attempting to support multiple dereferences, and maybe have
+    // some nice helper like dereference_type(type)
+    foreach(type, &self->types) {
+        if (string_cmp(&type->key, &symbol->type.key) != 0) continue;
+
+        if (!type->pointer) return type;
+    }
+
+    report_internal_error(&self->report, "expected non-pointer type to exist in type table");
+
+    return nullptr;
+}
+
+Type *get_location_type(Generator *self, const AstLocation *location) {
+    switch (location->kind) {
+        case LocationIdent:
+            return get_location_type_ident(self, &location->as.ident);
+        case LocationCompoundIdent:
+            return get_location_type_compound_ident(self, &location->as.compound_ident);
+        case LocationIndex:
+            return get_location_type_index(self, &location->as.index);
+    }
 }
 
 int printf_with_newline(const char* fmt, ...) {

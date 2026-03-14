@@ -24,7 +24,8 @@ build_object() {
         -Wno-char-subscripts \
         -Wno-gnu-statement-expression-from-macro-expansion \
         -Wno-gnu-case-range \
-        -Wgnu-zero-variadic-macro-arguments \
+        -Wno-gnu-zero-variadic-macro-arguments \
+        -Wno-unused-parameter \
         -Werror=incompatible-pointer-types \
         -c $1 \
         -o $2
