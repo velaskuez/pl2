@@ -284,12 +284,59 @@ void gen_location_compound_ident(Generator *self, const Strings *idents) {
     assert(symbol != nullptr);
     assert(symbol->kind == SymbolVariable);
 
-    // TODO: rethink of the type setup required
-    // u64 offset = resolve_nested_field_offset(self, idents);
+    Type *resolved_type = &symbol->type;
 
-    // self->write_fn("load.d %d", symbol->as.local);
-    // self->write_fn("push.d %d", offset);
-    // self->write_fn("astore.%s", op_ext(type));
+    assert(resolved_type->struct_id > 0);
+
+    Struct *struct_ = &self->structs.items[resolved_type->struct_id];
+
+    int var = self->var;
+    int local = symbol->as.local;
+    int offset = 0;
+
+    for (const String *field_name = &idents->items[1]; field_name < idents->items + idents->len; field_name++) {
+        if (resolved_type->struct_id < 0) {
+            report_error(&self->report, "cannot access field of %.*s", STRING_FMT_ARGS(&resolved_type->key));
+            return;
+        }
+
+        StructField *struct_field = nullptr;
+        foreach(it, &struct_->fields) {
+            if (string_cmp(&it->key, field_name) != 0) continue;
+            struct_field = it;
+        }
+
+        if (struct_field == nullptr) {
+            report_error(&self->report, "%.*s is not a field in %.*s", STRING_FMT_ARGS(field_name), STRING_FMT_ARGS(&resolved_type->key));
+            return;
+        }
+
+        offset = struct_field->offset;
+        resolved_type = &self->types.items[struct_field->id];
+
+        // Invalid access will be caught out in the next iteration, if there is one
+        if (resolved_type->struct_id < 0) continue;
+
+        struct_ = &self->structs.items[resolved_type->struct_id];
+
+        // TODO: Clearly possible to support embedded structs, but this condition is asserted
+        // earlier. Will need to track offsets in the embedded case
+        assert(resolved_type->pointer);
+
+        // TODO: should be possible to avoid doing a load immediately after a store
+        self->write_fn("load.d %d", local);
+        self->write_fn("push.d %d", offset);
+        self->write_fn("aload.d");
+
+        local = next_var(self, resolved_type);
+        self->write_fn("store.d %d", local);
+    }
+
+    self->write_fn("load.d %d", local);
+    self->write_fn("push.d %d", offset);
+    self->write_fn("astore%s", op_ext(resolved_type));
+
+    self->var = var;
 
     return;
 }
@@ -638,7 +685,7 @@ Type *get_location_type_compound_ident(Generator *self, const Strings *idents) {
         return nullptr;
     }
 
-    assert(resolved_type->struct_id > 0 && (u64)resolved_type->struct_id < self->structs.len);
+    assert(resolved_type->struct_id > 0);
 
     Struct *struct_ = &self->structs.items[resolved_type->struct_id];
 
