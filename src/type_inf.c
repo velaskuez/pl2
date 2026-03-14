@@ -1,4 +1,5 @@
 #include <stdbool.h>
+#include <assert.h>
 
 #include "str.h"
 #include "type.h"
@@ -8,7 +9,7 @@
 #include "util.h"
 #include "array.h"
 
-static void infer_type_inner(TypeInf *self, const AstExpr *expr);
+static void type_infer_inner(TypeInf *self, const AstExpr *expr);
 static void infer_binary_op_type(TypeInf *self, const AstBinaryOp *binary_op);
 static void infer_unary_op_type(TypeInf *self, const AstUnaryOp *unary_op);
 static void infer_value_type(TypeInf *self, const AstValue *value);
@@ -19,12 +20,12 @@ static void handle_known_type(TypeInf *self, const Type *type);
 
 // TODO: reporter for compiler errors which can be invoked outside of gen.c
 
-// TODO: infer_type can either return a pointer to a type in the types array or a symbol type
+// TODO: type_infer can either return a pointer to a type in the types array or a symbol type
 // which is messy. This makes me think that the typeid approach is probably more consistent
-// even though it requires an extra line of code whereever it's used. It's also safer in case
+// even though it requires a few extra lines of code whereever it's used. It's also safer in case
 // of reallocations and requires less space than storing the Type struct or possibly
 // even a pointer to it.
-Inferred infer_type(const Types *types, const Structs *structs, const SymbolChain *symbols,
+Inferred type_infer(const Types *types, const Structs *structs, const SymbolChain *symbols,
                        const AstExpr *expr) {
     TypeInf self = {0};
     self.coercible = false;
@@ -32,7 +33,7 @@ Inferred infer_type(const Types *types, const Structs *structs, const SymbolChai
     self.structs = structs;
     self.symbols = symbols;
 
-    infer_type_inner(&self, expr);
+    type_infer_inner(&self, expr);
 
     Inferred inferred_type = {0};
     inferred_type.type = self.inferred_type;
@@ -41,20 +42,14 @@ Inferred infer_type(const Types *types, const Structs *structs, const SymbolChai
     return inferred_type;
 }
 
-bool types_match(const Type *t, const Type *u) {
+bool type_match(const Type *t, const Type *u) {
     if (string_cmp(&t->key, &u->key) != 0) return false;
     if (t->pointer != u->pointer) return false;
 
     return true;
 }
 
-// An expression of integer literals may evaluate to i32 by default,
-// but a let binding may specify the type as a i8 or i64, which is permitted
-// Some coercions aren't permitted such as struct to different struct, or pointer to non-pointer
-// TODO: maybe T should be Inferred? Could tidy up some of the logic in gen.c
-bool can_coerce_types(const Type *t, const Type *u) {
-    if (types_match(t, u)) return true;
-
+bool type_coercible(const Type *t, const Type *u) {
     // Can T be coerced to U?
     if (t->struct_id > 0 || u->struct_id > 0) return false;
     if (t->pointer != u->pointer) return false;
@@ -63,7 +58,18 @@ bool can_coerce_types(const Type *t, const Type *u) {
     return true;
 }
 
-void infer_type_inner(TypeInf *self, const AstExpr *expr) {
+bool type_match_or_coercible(const Inferred *inferred, const Type *u) {
+    const Type *t = inferred->type;
+    assert(t != nullptr);
+
+    if (type_match(t, u)) return true;
+
+    if (!inferred->is_coercible) return false;
+
+    return type_coercible(inferred->type, u);
+}
+
+void type_infer_inner(TypeInf *self, const AstExpr *expr) {
     switch (expr->kind) {
     case ExprBinaryOp:
         infer_binary_op_type(self, &expr->as.binary_op);
@@ -87,8 +93,8 @@ void infer_type_inner(TypeInf *self, const AstExpr *expr) {
 }
 
 void infer_binary_op_type(TypeInf *self, const AstBinaryOp *binary_op) {
-    infer_type_inner(self, binary_op->left);
-    infer_type_inner(self, binary_op->right);
+    type_infer_inner(self, binary_op->left);
+    type_infer_inner(self, binary_op->right);
 }
 
 void infer_unary_op_type(TypeInf *self, const AstUnaryOp *unary_op) {
@@ -168,7 +174,7 @@ void infer_value_type(TypeInf *self, const AstValue *value) {
     // Since the inferred_type is already set, we just need
     // to ensure the literal's type matches or can at least be
     // coerced.
-    if (!can_coerce_types(self->inferred_type, type)) {
+    if (!type_coercible(self->inferred_type, type)) {
         TODO("literal coercion error handling");
     }
 }
@@ -203,16 +209,10 @@ void handle_known_type(TypeInf *self, const Type *type) {
         return;
     }
 
-    if (!self->coercible) {
-        if (!types_match(self->inferred_type, type)) {
-            TODO("ident type match error handling");
-        }
-
+    if (!type_match(self->inferred_type, type) ||
+            (self->coercible && !type_coercible(self->inferred_type, type))) {
+        TODO("type mismatch handling");
         return;
-    }
-
-    if (!can_coerce_types(self->inferred_type, type)) {
-        TODO("ident coercion error handling");
     }
 
     self->coercible = false;

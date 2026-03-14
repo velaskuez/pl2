@@ -10,15 +10,16 @@ struct List {
 }
 
 fn main() void {
-    let a i8 = 3;
-    let b *i8 = "hello";
-    let c i8 = 'a';
+    // let a i8 = 3;
+    // let b *i8 = "hello";
+    // let c i8 = 'a';
 
     // c = 'b';
 
-    let d *Link = new Link;
+    let d *i8 = new i8;
+    d[1] = 4;
 
-    let e = sizeof List;
+    // let e = sizeof List;
 
     // let a *int = 3;
     // let b = 4;

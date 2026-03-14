@@ -254,15 +254,15 @@ void gen_statement(Generator *self, const AstStatement *statement) {
 
 void gen_location(Generator *self, const AstLocation *location) {
     switch (location->kind) {
-        case LocationIdent:
-            gen_location_ident(self, &location->as.ident);
-            break;
-        case LocationCompoundIdent:
-            gen_location_compound_ident(self, &location->as.compound_ident);
-            break;
-        case LocationIndex:
-            gen_location_index(self, &location->as.index);
-            break;
+    case LocationIdent:
+        gen_location_ident(self, &location->as.ident);
+        break;
+    case LocationCompoundIdent:
+        gen_location_compound_ident(self, &location->as.compound_ident);
+        break;
+    case LocationIndex:
+        gen_location_index(self, &location->as.index);
+        break;
     }
 }
 
@@ -305,10 +305,12 @@ void gen_location_index(Generator *self, const AstIndex *index) {
 
     Type *index_type = &self->types.items[I64TypeID];
     Inferred inferred = get_inferred_type(self, &index->expr);
+    if (inferred.type == nullptr) {
+        report_error(&self->report, "cannot infer type of expression");
+        return;
+    }
 
-    if (types_match(inferred.type, index_type) || (inferred.is_coercible && can_coerce_types(inferred.type, index_type))) {
-        // OK
-    } else {
+    if (!type_match_or_coercible(&inferred, index_type)) {
         report_error(&self->report, "index expression must be coercible to i64");
         return;
     }
@@ -316,7 +318,7 @@ void gen_location_index(Generator *self, const AstIndex *index) {
     self->write_fn("load.d %d", symbol->as.local);
     gen_expr(self, &index->expr, index_type);
     self->write_fn("mul.d %d", type.realsize);
-    self->write_fn("astore.%s", op_ext(&type));
+    self->write_fn("astore%s", op_ext(&type));
 
 }
 
@@ -329,9 +331,7 @@ void gen_assign(Generator *self, const AstAssign *assign) {
 
     Type *type = get_location_type(self, &assign->location);
 
-    if (types_match(inferred.type, type) || (inferred.is_coercible && can_coerce_types(inferred.type, type))) {
-        // OK
-    } else {
+    if (!type_match_or_coercible(&inferred, type)) {
         report_error(&self->report, "assignment type mismatch");
         return;
     }
@@ -364,29 +364,19 @@ void gen_let(Generator *self, const AstLet *let) {
         }
 
         Type *type = &self->types.items[typeid];
-        if (!inferred.is_coercible) {
-            if (!types_match(inferred.type, type)) {
-                report_error(&self->report, "typed let statement does not match expression\n"
-                             "  inferred %s%.*s, given %s%.*s",
-                             inferred.type->pointer ? "*" : "",
-                             STRING_FMT_ARGS(&inferred.type->key),
-                             type->pointer ? "*" : "",
-                             STRING_FMT_ARGS(&type->key));
-                return;
-            }
-        } else {
-            if (!can_coerce_types(inferred.type, type)) {
-                report_error(&self->report, "typed let statement is not compatible with expression\n"
-                             "  inferred %s%.*s, given %s%.*s",
-                             inferred.type->pointer ? "*" : "",
-                             STRING_FMT_ARGS(&inferred.type->key),
-                             type->pointer ? "*" : "",
-                             STRING_FMT_ARGS(&type->key));
-                return;
-            }
-
-            inferred.type = type;
+        bool match = type_match_or_coercible(&inferred, type);
+        if (!match) {
+            report_error(&self->report, "typed let statement does not match expression\n"
+                         " ~ given    %s%.*s\n"
+                         " ~ inferred %s%.*s",
+                         type->pointer ? "*" : "",
+                         STRING_FMT_ARGS(&type->key),
+                         inferred.type->pointer ? "*" : "",
+                         STRING_FMT_ARGS(&inferred.type->key));
+            return;
         }
+
+        inferred.type = type;
     }
 
     int var = next_var(self, inferred.type);
@@ -594,7 +584,7 @@ int next_var(Generator *self, const Type *type) {
 }
 
 Inferred get_inferred_type(Generator *self, const AstExpr *expr) {
-    return infer_type(&self->types, &self->structs, self->symbols, expr);
+    return type_infer(&self->types, &self->structs, self->symbols, expr);
 }
 
 Type *get_location_type_ident(Generator *self, const String *ident) {
