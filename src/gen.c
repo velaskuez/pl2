@@ -359,13 +359,23 @@ void gen_let(Generator *self, const AstLet *let) {
 
         Type *type = &self->types.items[typeid];
         if (!inferred.is_coercible) {
-            if (!types_match(type, inferred.type)) {
-                report_error(&self->report, "typed let statement does not match expression");
+            if (!types_match(inferred.type, type)) {
+                report_error(&self->report, "typed let statement does not match expression\n"
+                             "  inferred %s%.*s, given %s%.*s",
+                             inferred.type->pointer ? "*" : "",
+                             STRING_FMT_ARGS(&inferred.type->key),
+                             type->pointer ? "*" : "",
+                             STRING_FMT_ARGS(&type->key));
                 return;
             }
         } else {
-            if (!can_coerce_types(type, inferred.type)) {
-                report_error(&self->report, "typed let statement is not compatible with expression");
+            if (!can_coerce_types(inferred.type, type)) {
+                report_error(&self->report, "typed let statement is not compatible with expression\n"
+                             "  inferred %s%.*s, given %s%.*s",
+                             inferred.type->pointer ? "*" : "",
+                             STRING_FMT_ARGS(&inferred.type->key),
+                             type->pointer ? "*" : "",
+                             STRING_FMT_ARGS(&type->key));
                 return;
             }
 
@@ -449,7 +459,43 @@ void gen_binary_op(Generator *self, const AstBinaryOp *binary_op, const Type *ty
     return;
 }
 
+void gen_unary_op_sizeof(Generator *self, const AstExpr *expr) {
+}
+
+void gen_unary_op_new(Generator *self, const AstExpr *expr) {
+    if (expr->kind != ExprIdent) {
+        report_error(&self->report, "operand of new must be a type identifier");
+        return;
+    }
+
+    const String *ident = &expr->as.ident;
+    Type *type = nullptr;
+
+    foreach(it, &self->types) {
+        if (string_cmp(&it->key, ident) != 0) continue;
+
+        type = it;
+        break;
+    }
+
+    if (type == nullptr) {
+        report_error(&self->report, "unknown type %.*s", STRING_FMT_ARGS(ident));
+        return;
+    }
+
+    self->write_fn("push.d %d", type->realsize);
+    self->write_fn("alloc");
+}
+
 void gen_unary_op(Generator *self, const AstUnaryOp *unary_op, const Type *type) {
+    switch (unary_op->op) {
+        case UnaryOpSizeOf:
+            self->write_fn("todo: sizeof");
+            break;
+        case UnaryOpNew:
+            gen_unary_op_new(self, unary_op->expr);
+            break;
+    }
     return;
 }
 

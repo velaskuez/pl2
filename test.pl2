@@ -13,7 +13,9 @@ fn main() void {
     let b *i8 = "hello";
     let c i8 = 'a';
 
-    c = 'b';
+    // c = 'b';
+
+    let d *Link = new Link;
 
     // let a *int = 3;
     // let b = 4;

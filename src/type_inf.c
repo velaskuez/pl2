@@ -6,6 +6,7 @@
 #include "ast.h"
 #include "symbol.h"
 #include "util.h"
+#include "array.h"
 
 static void infer_type_inner(TypeInf *self, const AstExpr *expr);
 static void infer_binary_op_type(TypeInf *self, const AstBinaryOp *binary_op);
@@ -91,20 +92,57 @@ void infer_binary_op_type(TypeInf *self, const AstBinaryOp *binary_op) {
 }
 
 void infer_unary_op_type(TypeInf *self, const AstUnaryOp *unary_op) {
-    infer_type_inner(self, unary_op->expr);
+    Type *type = nullptr;
+
+    switch (unary_op->op) {
+        case UnaryOpNew:
+            if (unary_op->expr->kind != ExprIdent) {
+                TODO("report error");
+                return;
+            }
+
+            foreach(it, self->types) {
+                if (string_cmp(&it->key, &unary_op->expr->as.ident) != 0) continue;
+                if (!it->pointer) continue;
+
+                type = it;
+                break;
+            }
+
+            if (type == nullptr) {
+                TODO("report error");
+                return;
+            }
+
+            break;
+        case UnaryOpSizeOf:
+            type = &self->types->items[I64TypeID];
+            break;
+        default:
+            panic("unreachable");
+    }
+
+    handle_known_type(self, type);
 }
 
 void infer_value_type(TypeInf *self, const AstValue *value) {
     Type *type = nullptr;
     switch (value->kind) {
         case ValueNumber:
-            // TODO: actually look at the number to assign the smallest
-            // possible type. This way if an identifier has type u8
-            // and it is mixed in an expression with a literal, then
-            // the literal can be simply matched/coerced
-            // I think it might be useful to store the sign as it's own
-            // flag rather than using just i64
-            type = &self->types->items[I32TypeID];
+            // TODO: It would be better to store the sign as it's own
+            // flag rather than using i64 for everything
+
+            // Use the smallest possible type so that it can be coerced
+            // to larger types if necessary.
+            i64 number = value->as.number;
+            if (number >= -128 && number <= 127) {
+                type = &self->types->items[I8TypeID];
+            } else if (number >= -2'147'438'648 && number <= 2'147'438'647) {
+                type = &self->types->items[I32TypeID];
+            } else {
+                type = &self->types->items[I64TypeID];
+            }
+
             break;
         case ValueString:
             type = &self->types->items[I8PtrTypeID];
