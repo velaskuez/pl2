@@ -152,15 +152,20 @@ void gen_struct(Generator *self, const AstStruct *ast_struct) {
         }
 
         if (i == struct_.fields.len-1) {
-            // Last element - the size of the struct will be a mulitple of 8
+            // Last element - add padding so the size of the struct
+            // will be a mulitple of 8
             offset += padding;
             break;
         }
 
-        // If the next type has the same alignment, then continue
-        // Otherwise, add padding
-        StructField *next = &struct_.fields.items[i+1];
-        if (self->types.items[it->id].alignment == self->types.items[next->id].alignment) {
+        // Two fields can be directly adjacent if either
+        //  - They both have the same alignment
+        //  - The first field is placed so that the next field will
+        //    be correctly aligned
+        size_t field_alignment = self->types.items[it->id].alignment;
+        size_t next_field_alignment = self->types.items[struct_.fields.items[i+1].id].alignment;
+        if (field_alignment == next_field_alignment ||
+                (field_alignment % offset == 0 && next_field_alignment < field_alignment)) {
             continue;
         }
 

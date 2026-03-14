@@ -4,15 +4,8 @@ struct Link {
 }
 
 struct List {
-    value i8;
-    value i8;
-    value i8;
-    value i8;
-    value i8;
-    value i8;
-    value i8;
-    value i8;
-    value i8;
+    value i32;
+    value i64;
     link *Link;
 }
 
