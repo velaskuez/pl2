@@ -43,6 +43,7 @@ static void gen_while(Generator *self, const AstWhile *while_);
 
 static void gen_expr(Generator *self, const AstExpr *expr, const Type *type);
 static void gen_binary_op(Generator *self, const AstBinaryOp *binary_op, const Type *type);
+static void gen_unary_op_new(Generator *self, const AstExpr *expr, const Type *type);
 static void gen_unary_op(Generator *self, const AstUnaryOp *unary_op, const Type *type);
 static void gen_value(Generator *self, const AstValue *value, const Type * type);
 static void gen_ident(Generator *self, const String *ident, const Type *type);
@@ -462,26 +463,9 @@ void gen_binary_op(Generator *self, const AstBinaryOp *binary_op, const Type *ty
 void gen_unary_op_sizeof(Generator *self, const AstExpr *expr) {
 }
 
-void gen_unary_op_new(Generator *self, const AstExpr *expr) {
-    if (expr->kind != ExprIdent) {
-        report_error(&self->report, "operand of new must be a type identifier");
-        return;
-    }
-
-    const String *ident = &expr->as.ident;
-    Type *type = nullptr;
-
-    foreach(it, &self->types) {
-        if (string_cmp(&it->key, ident) != 0) continue;
-
-        type = it;
-        break;
-    }
-
-    if (type == nullptr) {
-        report_error(&self->report, "unknown type %.*s", STRING_FMT_ARGS(ident));
-        return;
-    }
+void gen_unary_op_new(Generator *self, const AstExpr *expr, const Type *type) {
+    // We should have done these checks earlier whilst type-checking the assignment value
+    assert(expr->kind == ExprIdent);
 
     self->write_fn("push.d %d", type->realsize);
     self->write_fn("alloc");
@@ -493,7 +477,7 @@ void gen_unary_op(Generator *self, const AstUnaryOp *unary_op, const Type *type)
             self->write_fn("todo: sizeof");
             break;
         case UnaryOpNew:
-            gen_unary_op_new(self, unary_op->expr);
+            gen_unary_op_new(self, unary_op->expr, type);
             break;
     }
     return;
