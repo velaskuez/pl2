@@ -153,6 +153,7 @@ void gen_struct(Generator *self, const AstStruct *ast_struct) {
 
         if (i == struct_.fields.len-1) {
             // Last element - the size of the struct will be a mulitple of 8
+            assert(padding != 8);
             offset += padding;
             break;
         }
