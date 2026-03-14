@@ -353,9 +353,7 @@ AstLet parse_let(Parser *self) {
         let.type = box(parse_type(self));
     }
 
-    expect(self, TokenEqual);
-
-    if (!at(self, TokenSemicolon)) {
+    if (eat(self, TokenEqual)) {
         let.expr = box(parse_expr(self, 0));
     }
 

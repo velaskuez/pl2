@@ -1,11 +1,20 @@
+struct S2 {
+    v1 i8;
+}
+
+struct S1 {
+    v1 i32;
+    s2 *S2;
+}
+
 struct Link {
     prev *void;
     next *void;
 }
 
 struct List {
-    value i32;
-    value i64;
+    v1 i32;
+    s1 *S1;
     link *Link;
 }
 
@@ -16,8 +25,11 @@ fn main() void {
 
     // c = 'b';
 
-    let d *i8 = new i8;
-    d[1] = 4;
+    let d0 *List;
+    let d *List = new List;
+
+    let e i8 = 4;
+    d.s1.s2.v1 = e;
 
     // let e = sizeof List;
 

@@ -22,6 +22,7 @@ static Type *get_location_type_ident(Generator *self, const String *ident);
 static Type *get_location_type_compound_ident(Generator *self, const Strings *idents);
 static Type *get_location_type_index(Generator *self, const AstIndex *index);
 static Type *get_location_type(Generator *self, const AstLocation *location);
+static void report_type_mismatch(Generator *self, const Type *want, const Type *have);
 static int printf_with_newline(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
 
 static TypeID gen_type(Generator *self, const AstType *ast_type);
@@ -311,7 +312,7 @@ void gen_location_index(Generator *self, const AstIndex *index) {
     }
 
     if (!type_match_or_coercible(&inferred, index_type)) {
-        report_error(&self->report, "index expression must be coercible to i64");
+        report_type_mismatch(self, index_type, inferred.type);
         return;
     }
 
@@ -330,9 +331,13 @@ void gen_assign(Generator *self, const AstAssign *assign) {
     }
 
     Type *type = get_location_type(self, &assign->location);
+    if (type == nullptr) {
+        report_error(&self->report, "cannot resolve location type");
+        return;
+    }
 
     if (!type_match_or_coercible(&inferred, type)) {
-        report_error(&self->report, "assignment type mismatch");
+        report_type_mismatch(self, type, inferred.type);
         return;
     }
 
@@ -345,6 +350,29 @@ void gen_assign(Generator *self, const AstAssign *assign) {
 void gen_let(Generator *self, const AstLet *let) {
     if (symbol_find(self->symbols, &let->name) != nullptr) {
         report_error(&self->report, "redefinition of %.*s", STRING_FMT_ARGS(&let->name));
+        return;
+    }
+
+    // TODO: tidy up
+    if (let->expr == nullptr && let->type == nullptr) {
+        report_error(&self->report, "cannot declare variable without a type");
+        return;
+    }
+
+    if (let->expr == nullptr) {
+        TypeID typeid = gen_type(self, let->type);
+        if (typeid < 0) {
+            report_error(&self->report, "undefined type: %s%.*s",
+                         let->type->pointer ? "*" : "",
+                         STRING_FMT_ARGS(&let->type->name));
+            return;
+        }
+
+        Type *type = &self->types.items[typeid];
+
+        int var = next_var(self, type);
+        append(&self->symbols->head, symbol_make_variable(let->name, *type, var));
+
         return;
     }
 
@@ -364,15 +392,8 @@ void gen_let(Generator *self, const AstLet *let) {
         }
 
         Type *type = &self->types.items[typeid];
-        bool match = type_match_or_coercible(&inferred, type);
-        if (!match) {
-            report_error(&self->report, "typed let statement does not match expression\n"
-                         " ~ given    %s%.*s\n"
-                         " ~ inferred %s%.*s",
-                         type->pointer ? "*" : "",
-                         STRING_FMT_ARGS(&type->key),
-                         inferred.type->pointer ? "*" : "",
-                         STRING_FMT_ARGS(&inferred.type->key));
+        if (!type_match_or_coercible(&inferred, type)) {
+            report_type_mismatch(self, type, inferred.type);
             return;
         }
 
@@ -603,36 +624,48 @@ Type *get_location_type_ident(Generator *self, const String *ident) {
 }
 
 Type *get_location_type_compound_ident(Generator *self, const Strings *idents) {
+    assert(idents->len > 1);
+
     Symbol *symbol = symbol_find(self->symbols, &idents->items[0]);
     if (symbol == nullptr) {
         report_error(&self->report, "unknown identifier %.*s", STRING_FMT_ARGS(&idents->items[0]));
         return nullptr;
     }
 
+    Type *resolved_type = &symbol->type;
     if (symbol->kind != SymbolVariable) {
-        report_error(&self->report, "only assignment of variables currently supported");
+        report_error(&self->report, "cannot access field of %.*s", STRING_FMT_ARGS(&resolved_type->key));
         return nullptr;
     }
 
-    assert(symbol->type.struct_id > 0 && (u64)symbol->type.struct_id < self->structs.len);
+    assert(resolved_type->struct_id > 0 && (u64)resolved_type->struct_id < self->structs.len);
 
-    Struct *struct_ = &self->structs.items[symbol->type.struct_id];
-    foreach(field, &struct_->fields) {
-        if (string_cmp(&field->key, &idents->items[1]) != 0) continue;
+    Struct *struct_ = &self->structs.items[resolved_type->struct_id];
 
-        assert(field->id > 0 && (u64)field->id < self->types.len);
-
-        Type *type = &self->types.items[field->id];
-        if (type->struct_id > 0) {
-            TODO("recursively resolve type of compound identifier");
+    for (const String *field_name = &idents->items[1]; field_name < idents->items + idents->len; field_name++) {
+        if (resolved_type->struct_id < 0) {
+            report_error(&self->report, "cannot access field of %.*s", STRING_FMT_ARGS(&resolved_type->key));
+            return nullptr;
         }
 
-        return type;
+        StructField *struct_field = nullptr;
+        foreach(it, &struct_->fields) {
+            if (string_cmp(&it->key, field_name) != 0) continue;
+            struct_field = it;
+        }
+
+        if (struct_field == nullptr) {
+            report_error(&self->report, "%.*s is not a field in %.*s", STRING_FMT_ARGS(field_name), STRING_FMT_ARGS(&resolved_type->key));
+            return nullptr;
+        }
+
+        resolved_type = &self->types.items[struct_field->id];
+        if (resolved_type->struct_id >= 0) {
+            struct_ = &self->structs.items[resolved_type->struct_id];
+        }
     }
 
-    report_error(&self->report, "could not resolve type of compound identifier");
-
-    return nullptr;
+    return resolved_type;
 }
 
 Type *get_location_type_index(Generator *self, const AstIndex *index) {
@@ -673,6 +706,17 @@ Type *get_location_type(Generator *self, const AstLocation *location) {
         case LocationIndex:
             return get_location_type_index(self, &location->as.index);
     }
+}
+
+static void report_type_mismatch(Generator *self, const Type *want, const Type *have) {
+    report_error(&self->report, "types don't match\n"
+                 " ~ want %s%.*s\n"
+                 " ~ have %s%.*s",
+                 want->pointer ? "*" : "",
+                 STRING_FMT_ARGS(&want->key),
+                 have->pointer ? "*" : "",
+                 STRING_FMT_ARGS(&have->key));
+    return;
 }
 
 int printf_with_newline(const char* fmt, ...) {
