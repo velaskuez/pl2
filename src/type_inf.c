@@ -126,7 +126,7 @@ void type_expr_binary_op(TypeInf *self, const AstBinaryOp *binary_op) {
         }
 
         if (!type_match(self0.inferred_type, &self->types->items[I64TypeID]) &&
-            !(self0.coercible && type_coercible(self0.inferred_type, &self->types->items[I64TypeID]))) {
+                !(self0.coercible && type_coercible(self0.inferred_type, &self->types->items[I64TypeID]))) {
             report_error(self->report, "index expression must be i64");
             return;
         }
@@ -248,8 +248,8 @@ void type_expr_value(TypeInf *self, const AstValue *value) {
     // Since the inferred_type is already set, we just need
     // to ensure the literal's type matches or can at least be
     // coerced.
-    if (!type_coercible(self->inferred_type, type)) {
-        report_error(self->report, "literal can not be coerced to %s%.*s",
+    if (!type_coercible(type, self->inferred_type)) {
+        report_error(self->report, "literal cannot be coerced to %s%.*s",
                      self->inferred_type->pointer ? "*" : "",
                      STRING_FMT_ARGS(&self->inferred_type->key));
         return;
@@ -267,7 +267,12 @@ void type_expr_ident(TypeInf *self, const String *ident) {
 }
 
 void type_expr_compound_ident(TypeInf *self, const Strings *idents) {
-    TODO("type_expr_compound_ident");
+    Type *type = type_location_compound_ident(self, idents);
+    if (type == nullptr) {
+        return;
+    }
+
+    handle_known_type(self, type);
 }
 
 void type_expr_call(TypeInf *self, const AstCall *call) {
@@ -280,6 +285,8 @@ void type_expr_call(TypeInf *self, const AstCall *call) {
     handle_known_type(self, &symbol->type);
 }
 
+// TODO: refactor to reuse between expr and location
+
 Type *type_location_ident(TypeInf *self, const String *ident) {
     Symbol *symbol = symbol_find(self->symbols, ident);
     if (symbol == nullptr) {
@@ -288,7 +295,8 @@ Type *type_location_ident(TypeInf *self, const String *ident) {
     }
 
     if (symbol->kind != SymbolVariable) {
-        report_error(self->report, "only assignment of variables currently supported");
+        report_error(self->report, "%.*s is not a variable, cannot be used in an expression",
+                STRING_FMT_ARGS(ident));
         return nullptr;
     }
 
@@ -376,8 +384,8 @@ void handle_known_type(TypeInf *self, const Type *type) {
         return;
     }
 
-    if (!type_match(self->inferred_type, type) ||
-            (self->coercible && !type_coercible(self->inferred_type, type))) {
+    if (!type_match(self->inferred_type, type) &&
+            !(self->coercible && type_coercible(self->inferred_type, type))) {
         report_type_mismatch_error(self->report, type, self->inferred_type);
         return;
     }
