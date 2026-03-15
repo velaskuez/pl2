@@ -520,6 +520,14 @@ void gen_expr(Generator *self, const AstExpr *expr, const Type *type) {
 }
 
 void gen_binary_op(Generator *self, const AstBinaryOp *binary_op, const Type *type) {
+    // TODO: The same code for a compound identifier location can be re-used for a
+    // compound identifier expression, the only difference being the former will do
+    // an aload and the latter will do an astore. Compound identifiers could have been
+    // parsed as a binary operation, but they weren't and now code reuse is easy. It would
+    // probably be worth reusing the index location type too, but will need tweaking to
+    // parse a list of expressions (all of which should resolve/coerce to i64). This
+    // may make type-checking a little more awkward though (eg get_location_type,
+    // which should probably all live in type_inf.c anyways)
     if (binary_op->op == BinaryOpIndex) {
         gen_expr(self, binary_op->left, type);
 
