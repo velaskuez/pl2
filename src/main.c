@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "ast.h"
+#include "parse.h"
 #include "gen.h"
 #include "token.h"
 #include "util.h"

@@ -5,6 +5,7 @@
 #include "array.h"
 #include "token.h"
 #include "ast.h"
+#include "parse.h"
 #include "util.h"
 
 static int infix_prec[] = {
