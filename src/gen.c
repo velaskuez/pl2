@@ -18,9 +18,6 @@ static void init_scoped_symbols(Generator *self);
 static void free_scoped_symbols(Generator *self);
 static int next_var(Generator *self, const Type *type);
 static Inferred get_inferred_type(Generator *self, const AstExpr *expr);
-static Type *get_location_type_ident(Generator *self, const String *ident);
-static Type *get_location_type_compound_ident(Generator *self, const Strings *idents);
-static Type *get_location_type_index(Generator *self, const AstIndex *index);
 static Type *get_location_type(Generator *self, const AstLocation *location);
 static int printf_with_newline(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
 
@@ -706,106 +703,13 @@ int next_var(Generator *self, const Type *type) {
 }
 
 Inferred get_inferred_type(Generator *self, const AstExpr *expr) {
-    return type_infer(&self->report, &self->types, &self->structs, self->symbols, expr);
+    TypeInf type_inf = type_infer_new(&self->report, &self->types, &self->structs, self->symbols);
+    return type_expr(&type_inf, expr);
 }
 
-Type *get_location_type_ident(Generator *self, const String *ident) {
-    Symbol *symbol = symbol_find(self->symbols, ident);
-    if (symbol == nullptr) {
-        report_error(&self->report, "unknown identifier %.*s", STRING_FMT_ARGS(ident));
-        return nullptr;
-    }
-
-    if (symbol->kind != SymbolVariable) {
-        report_error(&self->report, "only assignment of variables currently supported");
-        return nullptr;
-    }
-
-    return &symbol->type;
-}
-
-Type *get_location_type_compound_ident(Generator *self, const Strings *idents) {
-    assert(idents->len > 1);
-
-    Symbol *symbol = symbol_find(self->symbols, &idents->items[0]);
-    if (symbol == nullptr) {
-        report_error(&self->report, "unknown identifier %.*s", STRING_FMT_ARGS(&idents->items[0]));
-        return nullptr;
-    }
-
-    Type *resolved_type = &symbol->type;
-    if (symbol->kind != SymbolVariable) {
-        report_error(&self->report, "cannot access field of %.*s", STRING_FMT_ARGS(&resolved_type->key));
-        return nullptr;
-    }
-
-    assert(resolved_type->struct_id > 0);
-
-    Struct *struct_ = &self->structs.items[resolved_type->struct_id];
-
-    for (const String *field_name = &idents->items[1]; field_name < idents->items + idents->len; field_name++) {
-        if (resolved_type->struct_id < 0) {
-            report_error(&self->report, "cannot access field of %.*s", STRING_FMT_ARGS(&resolved_type->key));
-            return nullptr;
-        }
-
-        StructField *struct_field = nullptr;
-        foreach(it, &struct_->fields) {
-            if (string_cmp(&it->key, field_name) != 0) continue;
-            struct_field = it;
-        }
-
-        if (struct_field == nullptr) {
-            report_error(&self->report, "%.*s is not a field in %.*s", STRING_FMT_ARGS(field_name), STRING_FMT_ARGS(&resolved_type->key));
-            return nullptr;
-        }
-
-        resolved_type = &self->types.items[struct_field->id];
-        if (resolved_type->struct_id >= 0) {
-            struct_ = &self->structs.items[resolved_type->struct_id];
-        }
-    }
-
-    return resolved_type;
-}
-
-Type *get_location_type_index(Generator *self, const AstIndex *index) {
-    Symbol *symbol = symbol_find(self->symbols, &index->ident);
-
-    if (symbol->kind != SymbolVariable) {
-        report_error(&self->report, "only assignment of variables currently supported");
-        return nullptr;
-    }
-
-    if (!symbol->type.pointer) {
-        report_error(&self->report, "cannot index into %.*s", STRING_FMT_ARGS(&index->ident));
-        return nullptr;
-    }
-
-
-    // Find the non-pointer type
-    // TODO(type-refactor): as part of the type refactor it would be worth
-    // attempting to support multiple dereferences, and maybe have
-    // some nice helper like dereference_type(type)
-    foreach(type, &self->types) {
-        if (string_cmp(&type->key, &symbol->type.key) != 0) continue;
-        if (!type->pointer) return type;
-    }
-
-    report_internal_error(&self->report, "expected non-pointer type to exist in type table");
-
-    return nullptr;
-}
-
-Type *get_location_type(Generator *self, const AstLocation *location) {
-    switch (location->kind) {
-        case LocationIdent:
-            return get_location_type_ident(self, &location->as.ident);
-        case LocationCompoundIdent:
-            return get_location_type_compound_ident(self, &location->as.compound_ident);
-        case LocationIndex:
-            return get_location_type_index(self, &location->as.index);
-    }
+Type* get_location_type(Generator *self, const AstLocation *location) {
+    TypeInf type_inf = type_infer_new(&self->report, &self->types, &self->structs, self->symbols);
+    return type_location(&type_inf, location);
 }
 
 int printf_with_newline(const char* fmt, ...) {

@@ -27,7 +27,8 @@ fn main() void {
     // c = 'b';
 
     let d0 *List;
-    let d *i8 = new i8;
+    let d1 *i64;
+    let d *i8 = new i64;
 
     // d.v1 = 77;
     // d.s1.v1 = 77;

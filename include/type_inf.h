@@ -21,9 +21,12 @@ typedef struct {
     bool is_coercible;
 } Inferred;
 
-Inferred type_infer(Report *report,
-                    const Types *types, const Structs *structs,
-                    const SymbolChain *symbols, const AstExpr *expr);
+TypeInf type_infer_new(Report *report,
+                       const Types *types, const Structs *structs,
+                       const SymbolChain *symbols);
+
+Inferred type_expr(TypeInf *self, const AstExpr *expr);
+Type *type_location(TypeInf *self, const AstLocation *location);
 
 bool type_match(const Type *t, const Type *u);
 bool type_coercible(const Type *t, const Type *u);

@@ -10,25 +10,27 @@
 #include "array.h"
 #include "report.h"
 
-static void type_infer_inner(TypeInf *self, const AstExpr *expr);
-static void infer_binary_op_type(TypeInf *self, const AstBinaryOp *binary_op);
-static void infer_unary_op_type(TypeInf *self, const AstUnaryOp *unary_op);
-static void infer_value_type(TypeInf *self, const AstValue *value);
-static void infer_ident_type(TypeInf *self, const String *ident);
-static void infer_compound_ident_type(TypeInf *self, const Strings *idents);
-static void infer_call_type(TypeInf *self, const AstCall *call);
-static void handle_known_type(TypeInf *self, const Type *type);
+static void type_expr_inner(TypeInf *self, const AstExpr *expr);
+static void type_expr_binary_op(TypeInf *self, const AstBinaryOp *binary_op);
+static void type_expr_unary_op(TypeInf *self, const AstUnaryOp *unary_op);
+static void type_expr_value(TypeInf *self, const AstValue *value);
+static void type_expr_ident(TypeInf *self, const String *ident);
+static void type_expr_compound_ident(TypeInf *self, const Strings *idents);
+static void type_expr_call(TypeInf *self, const AstCall *call);
 
-// TODO: reporter for compiler errors which can be invoked outside of gen.c
+static Type *type_location_ident(TypeInf *self, const String *ident);
+static Type *type_location_compound_ident(TypeInf *self, const Strings *idents);
+static Type *type_location_index(TypeInf *self, const AstIndex *index);
+
+static void handle_known_type(TypeInf *self, const Type *type);
 
 // TODO: type_infer can either return a pointer to a type in the types array or a symbol type
 // which is messy. This makes me think that the typeid approach is probably more consistent
 // even though it requires a few extra lines of code whereever it's used. It's also safer in case
 // of reallocations and requires less space than storing the Type struct or possibly
 // even a pointer to it.
-Inferred type_infer(Report *report,
-                    const Types *types, const Structs *structs,
-                    const SymbolChain *symbols, const AstExpr *expr) {
+TypeInf type_infer_new(Report *report, const Types *types,
+                       const Structs *structs, const SymbolChain *symbols) {
     TypeInf self = {0};
     self.coercible = false;
     self.types = types;
@@ -36,13 +38,28 @@ Inferred type_infer(Report *report,
     self.symbols = symbols;
     self.report = report;
 
-    type_infer_inner(&self, expr);
+    return self;
+}
+
+Inferred type_expr(TypeInf *self, const AstExpr *expr) {
+    type_expr_inner(self, expr);
 
     Inferred inferred_type = {0};
-    inferred_type.type = self.inferred_type;
-    inferred_type.is_coercible = self.coercible;
+    inferred_type.type = self->inferred_type;
+    inferred_type.is_coercible = self->coercible;
 
     return inferred_type;
+}
+
+Type* type_location(TypeInf *self, const AstLocation *location) {
+    switch (location->kind) {
+    case LocationIdent:
+        return type_location_ident(self, &location->as.ident);
+    case LocationCompoundIdent:
+        return type_location_compound_ident(self, &location->as.compound_ident);
+    case LocationIndex:
+        return type_location_index(self, &location->as.index);
+    }
 }
 
 bool type_match(const Type *t, const Type *u) {
@@ -72,37 +89,37 @@ bool type_match_or_coercible(const Inferred *inferred, const Type *u) {
     return type_coercible(inferred->type, u);
 }
 
-void type_infer_inner(TypeInf *self, const AstExpr *expr) {
+void type_expr_inner(TypeInf *self, const AstExpr *expr) {
     switch (expr->kind) {
     case ExprBinaryOp:
-        infer_binary_op_type(self, &expr->as.binary_op);
+        type_expr_binary_op(self, &expr->as.binary_op);
         break;
     case ExprUnaryOp:
-        infer_unary_op_type(self, &expr->as.unary_op);
+        type_expr_unary_op(self, &expr->as.unary_op);
         break;
     case ExprValue:
-        infer_value_type(self, &expr->as.value);
+        type_expr_value(self, &expr->as.value);
         break;
     case ExprIdent:
-        infer_ident_type(self, &expr->as.ident);
+        type_expr_ident(self, &expr->as.ident);
         break;
     case ExprCompoundIdent:
-        infer_compound_ident_type(self, &expr->as.compound_ident);
+        type_expr_compound_ident(self, &expr->as.compound_ident);
         break;
     case ExprCall:
-        infer_call_type(self, &expr->as.call);
+        type_expr_call(self, &expr->as.call);
         break;
     }
 }
 
-void infer_binary_op_type(TypeInf *self, const AstBinaryOp *binary_op) {
+void type_expr_binary_op(TypeInf *self, const AstBinaryOp *binary_op) {
     switch (binary_op->op) {
     case BinaryOpIndex:
         // rhs - must be a 64bit number
         TypeInf self0 = *self;
         self0.inferred_type = nullptr;
         self0.coercible = false;
-        type_infer_inner(&self0, binary_op->right);
+        type_expr_inner(&self0, binary_op->right);
         if (self0.inferred_type == nullptr) {
             report_error(self->report, "could not infer type of index expression");
             return;
@@ -115,7 +132,7 @@ void infer_binary_op_type(TypeInf *self, const AstBinaryOp *binary_op) {
         }
 
         // lhs - dereferenced type becomes the inferred type.
-        type_infer_inner(self, binary_op->left);
+        type_expr_inner(self, binary_op->left);
         if (self->inferred_type == nullptr) {
             report_error(self->report, "could not infer type of indexed value");
             return;
@@ -148,13 +165,13 @@ void infer_binary_op_type(TypeInf *self, const AstBinaryOp *binary_op) {
 
         break;
     default:
-        type_infer_inner(self, binary_op->left);
-        type_infer_inner(self, binary_op->right);
+        type_expr_inner(self, binary_op->left);
+        type_expr_inner(self, binary_op->right);
         break;
     }
 }
 
-void infer_unary_op_type(TypeInf *self, const AstUnaryOp *unary_op) {
+void type_expr_unary_op(TypeInf *self, const AstUnaryOp *unary_op) {
     Type *type = nullptr;
 
     switch (unary_op->op) {
@@ -173,7 +190,7 @@ void infer_unary_op_type(TypeInf *self, const AstUnaryOp *unary_op) {
         }
 
         if (type == nullptr) {
-            report_error(self->report, "unknown type %.*s", STRING_FMT_ARGS(&unary_op->expr->as.ident));
+            report_error(self->report, "unknown type *%.*s", STRING_FMT_ARGS(&unary_op->expr->as.ident));
             return;
         }
 
@@ -188,7 +205,7 @@ void infer_unary_op_type(TypeInf *self, const AstUnaryOp *unary_op) {
     handle_known_type(self, type);
 }
 
-void infer_value_type(TypeInf *self, const AstValue *value) {
+void type_expr_value(TypeInf *self, const AstValue *value) {
     Type *type = nullptr;
     switch (value->kind) {
     case ValueNumber:
@@ -239,7 +256,7 @@ void infer_value_type(TypeInf *self, const AstValue *value) {
     }
 }
 
-void infer_ident_type(TypeInf *self, const String *ident) {
+void type_expr_ident(TypeInf *self, const String *ident) {
     Symbol *symbol = symbol_find(self->symbols, ident);
     if (symbol == nullptr) {
         report_error(self->report, "unknown identifier %.*s", STRING_FMT_ARGS(ident));
@@ -249,11 +266,11 @@ void infer_ident_type(TypeInf *self, const String *ident) {
     handle_known_type(self, &symbol->type);
 }
 
-void infer_compound_ident_type(TypeInf *self, const Strings *idents) {
-    TODO("infer_compound_ident_type");
+void type_expr_compound_ident(TypeInf *self, const Strings *idents) {
+    TODO("type_expr_compound_ident");
 }
 
-void infer_call_type(TypeInf *self, const AstCall *call) {
+void type_expr_call(TypeInf *self, const AstCall *call) {
     Symbol *symbol = symbol_find(self->symbols, &call->name);
     if (symbol == nullptr) {
         report_error(self->report, "unknown identifier %.*s", STRING_FMT_ARGS(&call->name));
@@ -261,6 +278,94 @@ void infer_call_type(TypeInf *self, const AstCall *call) {
     }
 
     handle_known_type(self, &symbol->type);
+}
+
+Type *type_location_ident(TypeInf *self, const String *ident) {
+    Symbol *symbol = symbol_find(self->symbols, ident);
+    if (symbol == nullptr) {
+        report_error(self->report, "unknown identifier %.*s", STRING_FMT_ARGS(ident));
+        return nullptr;
+    }
+
+    if (symbol->kind != SymbolVariable) {
+        report_error(self->report, "only assignment of variables currently supported");
+        return nullptr;
+    }
+
+    return &symbol->type;
+}
+
+Type *type_location_compound_ident(TypeInf *self, const Strings *idents) {
+    assert(idents->len > 1);
+
+    Symbol *symbol = symbol_find(self->symbols, &idents->items[0]);
+    if (symbol == nullptr) {
+        report_error(self->report, "unknown identifier %.*s", STRING_FMT_ARGS(&idents->items[0]));
+        return nullptr;
+    }
+
+    Type *resolved_type = &symbol->type;
+    if (symbol->kind != SymbolVariable) {
+        report_error(self->report, "cannot access field of %.*s", STRING_FMT_ARGS(&resolved_type->key));
+        return nullptr;
+    }
+
+    assert(resolved_type->struct_id > 0);
+
+    Struct *struct_ = &self->structs->items[resolved_type->struct_id];
+
+    for (const String *field_name = &idents->items[1]; field_name < idents->items + idents->len; field_name++) {
+        if (resolved_type->struct_id < 0) {
+            report_error(self->report, "cannot access field of %.*s", STRING_FMT_ARGS(&resolved_type->key));
+            return nullptr;
+        }
+
+        StructField *struct_field = nullptr;
+        foreach(it, &struct_->fields) {
+            if (string_cmp(&it->key, field_name) != 0) continue;
+            struct_field = it;
+        }
+
+        if (struct_field == nullptr) {
+            report_error(self->report, "%.*s is not a field in %.*s", STRING_FMT_ARGS(field_name), STRING_FMT_ARGS(&resolved_type->key));
+            return nullptr;
+        }
+
+        resolved_type = &self->types->items[struct_field->id];
+        if (resolved_type->struct_id >= 0) {
+            struct_ = &self->structs->items[resolved_type->struct_id];
+        }
+    }
+
+    return resolved_type;
+}
+
+Type *type_location_index(TypeInf *self, const AstIndex *index) {
+    Symbol *symbol = symbol_find(self->symbols, &index->ident);
+
+    if (symbol->kind != SymbolVariable) {
+        report_error(self->report, "only assignment of variables currently supported");
+        return nullptr;
+    }
+
+    if (!symbol->type.pointer) {
+        report_error(self->report, "cannot index into %.*s", STRING_FMT_ARGS(&index->ident));
+        return nullptr;
+    }
+
+
+    // Find the non-pointer type
+    // TODO(type-refactor): as part of the type refactor it would be worth
+    // attempting to support multiple dereferences, and maybe have
+    // some nice helper like dereference_type(type)
+    foreach(type, self->types) {
+        if (string_cmp(&type->key, &symbol->type.key) != 0) continue;
+        if (!type->pointer) return type;
+    }
+
+    report_internal_error(self->report, "expected non-pointer type to exist in type table");
+
+    return nullptr;
 }
 
 void handle_known_type(TypeInf *self, const Type *type) {
