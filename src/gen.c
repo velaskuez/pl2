@@ -520,7 +520,58 @@ void gen_expr(Generator *self, const AstExpr *expr, const Type *type) {
 }
 
 void gen_binary_op(Generator *self, const AstBinaryOp *binary_op, const Type *type) {
-    return;
+    if (binary_op->op == BinaryOpIndex) {
+        gen_expr(self, binary_op->left, type);
+
+        // This should have been checked earlier - the rhs must be I64
+        gen_expr(self, binary_op->right, &self->types.items[I64TypeID]);
+        self->write_fn("mul.d %d", type->realsize);
+        self->write_fn("aload%s", op_ext(type));
+        return;
+    }
+
+    gen_expr(self, binary_op->left, type);
+    gen_expr(self, binary_op->right, type);
+
+    switch (binary_op->op){
+    case BinaryOpEq:
+        break;
+    case BinaryOpNeq:
+        break;
+    case BinaryOpLt:
+        break;
+    case BinaryOpLe:
+        break;
+    case BinaryOpGt:
+        break;
+    case BinaryOpGe:
+        break;
+    case BinaryOpAdd:
+        self->write_fn("add%s", op_ext(type));
+        break;
+    case BinaryOpSub:
+        self->write_fn("sub%s", op_ext(type));
+        break;
+    case BinaryOpMul:
+        self->write_fn("mul%s", op_ext(type));
+        break;
+    case BinaryOpDiv:
+        self->write_fn("div%s", op_ext(type));
+        break;
+    case BinaryOpAnd:
+        break;
+    case BinaryOpOr:
+        break;
+    case BinaryOpBitAnd:
+        panic("unimplemented");
+        break;
+    case BinaryOpBitOr:
+        panic("unimplemented");
+        break;
+    case BinaryOpIndex:
+        panic("unreachable");
+        break;
+    }
 }
 
 void gen_unary_op_sizeof(Generator *self, const AstExpr *expr) {
@@ -548,8 +599,6 @@ void gen_unary_op_sizeof(Generator *self, const AstExpr *expr) {
     }
 
     self->write_fn("push.d %d", inferred.type->realsize);
-
-    return;
 }
 
 void gen_unary_op_new(Generator *self, const AstExpr *expr, const Type *type) {
@@ -569,43 +618,41 @@ void gen_unary_op(Generator *self, const AstUnaryOp *unary_op, const Type *type)
             gen_unary_op_new(self, unary_op->expr, type);
             break;
     }
-    return;
 }
 
 void gen_value(Generator *self, const AstValue *value, const Type *type) {
     switch (value->kind) {
     case ValueString:
-        if (!type->pointer || type->realsize != 1) {
-            report_internal_error(&self->report, "attempted to generate string with an incompatible type");
-            return;
-        }
-
         // TODO: keep track of seen string literals for reuse
         int label = self->string++;
         self->write_fn(".data s%d .string \"%.*s\"", label, STRING_FMT_ARGS(&value->as.string));
         self->write_fn("dataptr s%d", label);
+
         return;
     case ValueChar:
-        if (type->size != 1) {
-            report_internal_error(&self->report, "attempted to generate char with an incompatible type");
-            return;
-        }
-
         self->write_fn("push%s '%c'", op_ext(type), (char)value->as.char_);
+
         return;
     case ValueNumber:
-        if (type->size > 8) {
-            report_internal_error(&self->report, "attempted to generate number with an incompatible type");
-            return;
-        }
-
         self->write_fn("push%s %ld", op_ext(type), value->as.number);
+
         return;
     }
 }
 
 void gen_ident(Generator *self, const String *ident, const Type *type) {
-    return;
+    Symbol *symbol = symbol_find(self->symbols, ident);
+    if (symbol == nullptr) {
+        report_error(&self->report, "unknown identifier %.*s", STRING_FMT_ARGS(ident));
+        return;
+    }
+
+    if (symbol->kind != SymbolVariable) {
+        report_error(&self->report, "functions not supported as values in expressions");
+        return;
+    }
+
+    self->write_fn("load%s %d", op_ext(type), symbol->as.local);
 }
 
 void gen_compound_ident(Generator *self, const Strings *idents, const Type *type) {
@@ -730,12 +777,11 @@ Type *get_location_type_index(Generator *self, const AstIndex *index) {
 
 
     // Find the non-pointer type
-    // TODO: as part of the type refactor it would be worth
+    // TODO(type-refactor): as part of the type refactor it would be worth
     // attempting to support multiple dereferences, and maybe have
     // some nice helper like dereference_type(type)
     foreach(type, &self->types) {
         if (string_cmp(&type->key, &symbol->type.key) != 0) continue;
-
         if (!type->pointer) return type;
     }
 

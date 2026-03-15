@@ -50,7 +50,7 @@ bool type_match(const Type *t, const Type *u) {
 }
 
 bool type_coercible(const Type *t, const Type *u) {
-    // Can T be coerced to U?
+    // Can T be coerced into U?
     if (t->struct_id > 0 || u->struct_id > 0) return false;
     if (t->pointer != u->pointer) return false;
     if (t->realsize > u->realsize) return false;
@@ -93,39 +93,88 @@ void type_infer_inner(TypeInf *self, const AstExpr *expr) {
 }
 
 void infer_binary_op_type(TypeInf *self, const AstBinaryOp *binary_op) {
-    type_infer_inner(self, binary_op->left);
-    type_infer_inner(self, binary_op->right);
+    switch (binary_op->op) {
+    case BinaryOpIndex:
+        // rhs - must be a 64bit number
+        TypeInf self0 = *self;
+        self0.inferred_type = nullptr;
+        self0.coercible = false;
+        type_infer_inner(&self0, binary_op->right);
+        if (self0.inferred_type == nullptr) {
+            TODO("type == nullptr error");
+        }
+
+        if (!type_match(self0.inferred_type, &self->types->items[I64TypeID]) &&
+            !(self0.coercible && type_coercible(self0.inferred_type, &self->types->items[I64TypeID]))) {
+            TODO("index expression must be i64");
+        }
+
+        // lhs - dereferenced type becomes the inferred type.
+        type_infer_inner(self, binary_op->left);
+        if (self->inferred_type == nullptr) {
+            TODO("could not infer type of value to index");
+        }
+
+        // TODO(type-refactor): support multiple dereferences.
+        // Currently this condition is never reached, eg
+        // a is *i8;
+        // a[0][0] will always resolve to i8, which is wrong.
+        if (!self->inferred_type->pointer) {
+            TODO("cannot index type");
+        }
+
+        Type *dereferenced_type = nullptr;
+        foreach(type, self->types) {
+            if (string_cmp(&type->key, &self->inferred_type->key) != 0) continue;
+            if (!type->pointer) {
+                dereferenced_type = type;
+                break;
+            }
+        }
+
+        if (dereferenced_type == nullptr) {
+            TODO("non-pointer type should exist in type table");
+        }
+
+        self->inferred_type = dereferenced_type;
+
+        break;
+    default:
+        type_infer_inner(self, binary_op->left);
+        type_infer_inner(self, binary_op->right);
+        break;
+    }
 }
 
 void infer_unary_op_type(TypeInf *self, const AstUnaryOp *unary_op) {
     Type *type = nullptr;
 
     switch (unary_op->op) {
-        case UnaryOpNew:
-            if (unary_op->expr->kind != ExprIdent) {
-                TODO("report error");
-                return;
-            }
+    case UnaryOpNew:
+        if (unary_op->expr->kind != ExprIdent) {
+            TODO("report error");
+            return;
+        }
 
-            foreach(it, self->types) {
-                if (string_cmp(&it->key, &unary_op->expr->as.ident) != 0) continue;
-                if (!it->pointer) continue;
+        foreach(it, self->types) {
+            if (string_cmp(&it->key, &unary_op->expr->as.ident) != 0) continue;
+            if (!it->pointer) continue;
 
-                type = it;
-                break;
-            }
-
-            if (type == nullptr) {
-                TODO("report error");
-                return;
-            }
-
+            type = it;
             break;
-        case UnaryOpSizeOf:
-            type = &self->types->items[I64TypeID];
-            break;
-        default:
-            panic("unreachable");
+        }
+
+        if (type == nullptr) {
+            TODO("type == nullptr error");
+            return;
+        }
+
+        break;
+    case UnaryOpSizeOf:
+        type = &self->types->items[I64TypeID];
+        break;
+    default:
+        panic("unreachable");
     }
 
     handle_known_type(self, type);
@@ -134,28 +183,28 @@ void infer_unary_op_type(TypeInf *self, const AstUnaryOp *unary_op) {
 void infer_value_type(TypeInf *self, const AstValue *value) {
     Type *type = nullptr;
     switch (value->kind) {
-        case ValueNumber:
-            // TODO: It would be better to store the sign as it's own
-            // flag rather than using i64 for everything
+    case ValueNumber:
+        // TODO: It would be better to store the sign as it's own
+        // flag rather than using i64 for everything
 
-            // Use the smallest possible type so that it can be coerced
-            // to larger types if necessary.
-            i64 number = value->as.number;
-            if (number >= -128 && number <= 127) {
-                type = &self->types->items[I8TypeID];
-            } else if (number >= -2'147'438'648 && number <= 2'147'438'647) {
-                type = &self->types->items[I32TypeID];
-            } else {
-                type = &self->types->items[I64TypeID];
-            }
-
-            break;
-        case ValueString:
-            type = &self->types->items[I8PtrTypeID];
-            break;
-        case ValueChar:
+        // Use the smallest possible type so that it can be coerced
+        // to larger types if necessary.
+        i64 number = value->as.number;
+        if (number >= -128 && number <= 127) {
             type = &self->types->items[I8TypeID];
-            break;
+        } else if (number >= -2'147'438'648 && number <= 2'147'438'647) {
+            type = &self->types->items[I32TypeID];
+        } else {
+            type = &self->types->items[I64TypeID];
+        }
+
+        break;
+    case ValueString:
+        type = &self->types->items[I8PtrTypeID];
+        break;
+    case ValueChar:
+        type = &self->types->items[I8TypeID];
+        break;
     }
 
     if (self->inferred_type == nullptr) {

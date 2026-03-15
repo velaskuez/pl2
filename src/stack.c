@@ -2,27 +2,31 @@
 #include "util.h"
 
 const char *op_ext(const Type *type) {
-    // TODO: .b exists
-
-    switch (type->slotsize) {
-    case Invalid:
-        panic("attempt to call op_ext() on unsized type");
-    case SingleSlot:
+    if (type->size == 1) {
+        return ".b";
+    } else if (type->size > 1 && type->size <= 4) {
         return ".w";
-    case DoubleSlot:
+    } else if (type->size > 4 && type->size <= 8) {
         return ".d";
-    default:
-        panic("unreachable");
+    } else if (type->struct_id > 0) {
+        panic("attempt to call op_ext() on struct");
+    } else if (type->size == 0) {
+        panic("attempt to call op_ext() on unsized type");
     }
+
+    panic("unreachable");
 }
 
 const char *ret_ext(const Type *type) {
-    switch (type->slotsize) {
-    case Invalid:
+    if (type->size == 0) {
         return "";
-    case SingleSlot:
+    } else if (type->size >= 1 && type->size <= 4) {
         return ".w";
-    case DoubleSlot:
+    } else if (type->size > 4 && type->size <= 8) {
         return ".d";
+    } else if (type->struct_id > 0) {
+        panic("attempt to call ret_ext() on struct");
     }
+
+    panic("unreachable");
 }
