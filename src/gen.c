@@ -22,7 +22,6 @@ static Type *get_location_type_ident(Generator *self, const String *ident);
 static Type *get_location_type_compound_ident(Generator *self, const Strings *idents);
 static Type *get_location_type_index(Generator *self, const AstIndex *index);
 static Type *get_location_type(Generator *self, const AstLocation *location);
-static void report_type_mismatch(Generator *self, const Type *want, const Type *have);
 static int printf_with_newline(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
 
 static TypeID gen_type(Generator *self, const AstType *ast_type);
@@ -359,7 +358,7 @@ void gen_location_index(Generator *self, const AstIndex *index) {
     }
 
     if (!type_match_or_coercible(&inferred, index_type)) {
-        report_type_mismatch(self, index_type, inferred.type);
+        report_type_mismatch_error(&self->report, index_type, inferred.type);
         return;
     }
 
@@ -384,7 +383,7 @@ void gen_assign(Generator *self, const AstAssign *assign) {
     }
 
     if (!type_match_or_coercible(&inferred, type)) {
-        report_type_mismatch(self, type, inferred.type);
+        report_type_mismatch_error(&self->report, type, inferred.type);
         return;
     }
 
@@ -440,7 +439,7 @@ void gen_let(Generator *self, const AstLet *let) {
 
         Type *type = &self->types.items[typeid];
         if (!type_match_or_coercible(&inferred, type)) {
-            report_type_mismatch(self, type, inferred.type);
+            report_type_mismatch_error(&self->report, type, inferred.type);
             return;
         }
 
@@ -707,7 +706,7 @@ int next_var(Generator *self, const Type *type) {
 }
 
 Inferred get_inferred_type(Generator *self, const AstExpr *expr) {
-    return type_infer(&self->types, &self->structs, self->symbols, expr);
+    return type_infer(&self->report, &self->types, &self->structs, self->symbols, expr);
 }
 
 Type *get_location_type_ident(Generator *self, const String *ident) {
@@ -807,17 +806,6 @@ Type *get_location_type(Generator *self, const AstLocation *location) {
         case LocationIndex:
             return get_location_type_index(self, &location->as.index);
     }
-}
-
-static void report_type_mismatch(Generator *self, const Type *want, const Type *have) {
-    report_error(&self->report, "types don't match\n"
-                 " ~ want %s%.*s\n"
-                 " ~ have %s%.*s",
-                 want->pointer ? "*" : "",
-                 STRING_FMT_ARGS(&want->key),
-                 have->pointer ? "*" : "",
-                 STRING_FMT_ARGS(&have->key));
-    return;
 }
 
 int printf_with_newline(const char* fmt, ...) {

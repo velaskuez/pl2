@@ -29,7 +29,7 @@ void report_internal_error(Report *self, const char *fmt, ...) {
     va_end(args);
 
     fprintf(stderr, "\n");
-    fprintf(stderr, "(This is most likely a bug in the compiler)\n");
+    fprintf(stderr, "(This is a bug in the compiler)\n");
 }
 
 void report_warning(Report *self, const char *fmt, ...) {
@@ -43,4 +43,15 @@ void report_warning(Report *self, const char *fmt, ...) {
     va_end(args);
 
     fprintf(stderr, "\n");
+}
+
+void report_type_mismatch_error(Report *self, const Type *want, const Type *have) {
+    report_error(self, "types don't match\n"
+                 " ~ want %s%.*s\n"
+                 " ~ have %s%.*s",
+                 want->pointer ? "*" : "",
+                 STRING_FMT_ARGS(&want->key),
+                 have->pointer ? "*" : "",
+                 STRING_FMT_ARGS(&have->key));
+    return;
 }

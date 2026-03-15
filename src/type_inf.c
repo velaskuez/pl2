@@ -8,6 +8,7 @@
 #include "symbol.h"
 #include "util.h"
 #include "array.h"
+#include "report.h"
 
 static void type_infer_inner(TypeInf *self, const AstExpr *expr);
 static void infer_binary_op_type(TypeInf *self, const AstBinaryOp *binary_op);
@@ -25,13 +26,15 @@ static void handle_known_type(TypeInf *self, const Type *type);
 // even though it requires a few extra lines of code whereever it's used. It's also safer in case
 // of reallocations and requires less space than storing the Type struct or possibly
 // even a pointer to it.
-Inferred type_infer(const Types *types, const Structs *structs, const SymbolChain *symbols,
-                       const AstExpr *expr) {
+Inferred type_infer(Report *report,
+                    const Types *types, const Structs *structs,
+                    const SymbolChain *symbols, const AstExpr *expr) {
     TypeInf self = {0};
     self.coercible = false;
     self.types = types;
     self.structs = structs;
     self.symbols = symbols;
+    self.report = report;
 
     type_infer_inner(&self, expr);
 
@@ -101,18 +104,21 @@ void infer_binary_op_type(TypeInf *self, const AstBinaryOp *binary_op) {
         self0.coercible = false;
         type_infer_inner(&self0, binary_op->right);
         if (self0.inferred_type == nullptr) {
-            TODO("type == nullptr error");
+            report_error(self->report, "could not infer type of index expression");
+            return;
         }
 
         if (!type_match(self0.inferred_type, &self->types->items[I64TypeID]) &&
             !(self0.coercible && type_coercible(self0.inferred_type, &self->types->items[I64TypeID]))) {
-            TODO("index expression must be i64");
+            report_error(self->report, "index expression must be i64");
+            return;
         }
 
         // lhs - dereferenced type becomes the inferred type.
         type_infer_inner(self, binary_op->left);
         if (self->inferred_type == nullptr) {
-            TODO("could not infer type of value to index");
+            report_error(self->report, "could not infer type of indexed value");
+            return;
         }
 
         // TODO(type-refactor): support multiple dereferences.
@@ -120,7 +126,8 @@ void infer_binary_op_type(TypeInf *self, const AstBinaryOp *binary_op) {
         // a is *i8;
         // a[0][0] will always resolve to i8, which is wrong.
         if (!self->inferred_type->pointer) {
-            TODO("cannot index type");
+            report_error(self->report, "value cannot be indexed");
+            return;
         }
 
         Type *dereferenced_type = nullptr;
@@ -133,7 +140,8 @@ void infer_binary_op_type(TypeInf *self, const AstBinaryOp *binary_op) {
         }
 
         if (dereferenced_type == nullptr) {
-            TODO("non-pointer type should exist in type table");
+            report_internal_error(self->report, "non-pointer type should exist in type table");
+            return;
         }
 
         self->inferred_type = dereferenced_type;
@@ -152,7 +160,7 @@ void infer_unary_op_type(TypeInf *self, const AstUnaryOp *unary_op) {
     switch (unary_op->op) {
     case UnaryOpNew:
         if (unary_op->expr->kind != ExprIdent) {
-            TODO("report error");
+            report_error(self->report, "argument to new must be an identifier");
             return;
         }
 
@@ -165,7 +173,7 @@ void infer_unary_op_type(TypeInf *self, const AstUnaryOp *unary_op) {
         }
 
         if (type == nullptr) {
-            TODO("type == nullptr error");
+            report_error(self->report, "unknown type %.*s", STRING_FMT_ARGS(&unary_op->expr->as.ident));
             return;
         }
 
@@ -224,14 +232,18 @@ void infer_value_type(TypeInf *self, const AstValue *value) {
     // to ensure the literal's type matches or can at least be
     // coerced.
     if (!type_coercible(self->inferred_type, type)) {
-        TODO("literal coercion error handling");
+        report_error(self->report, "literal can not be coerced to %s%.*s",
+                     self->inferred_type->pointer ? "*" : "",
+                     STRING_FMT_ARGS(&self->inferred_type->key));
+        return;
     }
 }
 
 void infer_ident_type(TypeInf *self, const String *ident) {
     Symbol *symbol = symbol_find(self->symbols, ident);
     if (symbol == nullptr) {
-        TODO("unknown symbol error handling");
+        report_error(self->report, "unknown identifier %.*s", STRING_FMT_ARGS(ident));
+        return;
     }
 
     handle_known_type(self, &symbol->type);
@@ -244,7 +256,8 @@ void infer_compound_ident_type(TypeInf *self, const Strings *idents) {
 void infer_call_type(TypeInf *self, const AstCall *call) {
     Symbol *symbol = symbol_find(self->symbols, &call->name);
     if (symbol == nullptr) {
-        TODO("unknown symbol error handling");
+        report_error(self->report, "unknown identifier %.*s", STRING_FMT_ARGS(&call->name));
+        return;
     }
 
     handle_known_type(self, &symbol->type);
@@ -260,7 +273,7 @@ void handle_known_type(TypeInf *self, const Type *type) {
 
     if (!type_match(self->inferred_type, type) ||
             (self->coercible && !type_coercible(self->inferred_type, type))) {
-        TODO("type mismatch handling");
+        report_type_mismatch_error(self->report, type, self->inferred_type);
         return;
     }
 
