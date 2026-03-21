@@ -3,6 +3,7 @@
 #include "str.h"
 #include "token.h"
 #include "int.h"
+#include "type2.h"
 
 typedef struct AstStatement AstStatement;
 
@@ -116,6 +117,7 @@ typedef struct {
 
 struct AstExpr {
     AstNode node;
+    Type type;
 
     ExprKind kind;
     union {
