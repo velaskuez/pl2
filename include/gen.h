@@ -12,6 +12,7 @@ typedef struct {
 
     int var; // For allocating temporary variables
     int string; // For assigning labels to static strings
+    int label; // For allocating labels for control flow
 
     int (*write_fn)(const char *, ...) __attribute__((format(printf, 1, 2)));
 

@@ -165,6 +165,8 @@ void type_expr_binary_op(TypeInf *self, const AstBinaryOp *binary_op) {
 
         break;
     default:
+        // TODO: inferred type of logical/comparison operation is bool. We just need
+        // to make sure operands are comparable
         type_expr_inner(self, binary_op->left);
         type_expr_inner(self, binary_op->right);
         break;

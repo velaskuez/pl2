@@ -40,6 +40,7 @@ static void gen_while(Generator *self, const AstWhile *while_);
 
 static void gen_expr(Generator *self, const AstExpr *expr, const Type *type);
 static void gen_binary_op(Generator *self, const AstBinaryOp *binary_op, const Type *type);
+static void gen_comparison_op(Generator *self, const char *op_ext, const char *jmp_op_ext);
 static void gen_unary_op_new(Generator *self, const AstExpr *expr, const Type *type);
 static void gen_unary_op(Generator *self, const AstUnaryOp *unary_op, const Type *type);
 static void gen_value(Generator *self, const AstValue *value, const Type * type);
@@ -515,6 +516,19 @@ void gen_expr(Generator *self, const AstExpr *expr, const Type *type) {
     }
 }
 
+void gen_comparison_op(Generator *self, const char *op_ext, const char *jmp_op_ext) {
+    int l1 = self->label++;
+    int l2 = self->label++;
+
+    self->write_fn("cmp%s", op_ext);
+    self->write_fn("jmp%s l%d", jmp_op_ext, l1);
+    self->write_fn("push.w 0");
+    self->write_fn("jmp l%d", l2);
+    self->write_fn("l%d:", l1);
+    self->write_fn("push.w 1");
+    self->write_fn("l%d:", l2);
+}
+
 void gen_binary_op(Generator *self, const AstBinaryOp *binary_op, const Type *type) {
     // TODO: The same code for a compound identifier location can be re-used for a
     // compound identifier expression, the only difference being the former will do
@@ -539,16 +553,22 @@ void gen_binary_op(Generator *self, const AstBinaryOp *binary_op, const Type *ty
 
     switch (binary_op->op){
     case BinaryOpEq:
+        gen_comparison_op(self, op_ext(type), ".eq");
         break;
     case BinaryOpNeq:
+        gen_comparison_op(self, op_ext(type), ".neq");
         break;
     case BinaryOpLt:
+        gen_comparison_op(self, op_ext(type), ".lt");
         break;
     case BinaryOpLe:
+        gen_comparison_op(self, op_ext(type), ".le");
         break;
     case BinaryOpGt:
+        gen_comparison_op(self, op_ext(type), ".gt");
         break;
     case BinaryOpGe:
+        gen_comparison_op(self, op_ext(type), ".ge");
         break;
     case BinaryOpAdd:
         self->write_fn("add%s", op_ext(type));
@@ -563,8 +583,14 @@ void gen_binary_op(Generator *self, const AstBinaryOp *binary_op, const Type *ty
         self->write_fn("div%s", op_ext(type));
         break;
     case BinaryOpAnd:
+        self->write_fn("add.w");
+        self->write_fn("push.w 2");
+        gen_comparison_op(self, ".w", ".eq");
         break;
     case BinaryOpOr:
+        self->write_fn("add.w");
+        self->write_fn("push.w 1");
+        gen_comparison_op(self, ".w", ".ge");
         break;
     case BinaryOpBitAnd:
         panic("unimplemented");

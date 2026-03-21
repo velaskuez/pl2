@@ -40,6 +40,8 @@ fn main() void {
 
     let f i8 = d0.s1.s2.v1 + 2;
 
+    let a i32 = 0 > 1 && 2 > 3;
+
     // let e i8 = 4;
 
     // let e = sizeof List;
