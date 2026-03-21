@@ -203,14 +203,24 @@ void gen_function(Generator *self, const AstFunction *function) {
 
         Type type = self->types.items[typeid];
         append(&arg_types, type);
-        append(&self->symbols->head, symbol_make_variable(param->name, type, next_var(self, &type)));
     }
 
     append(&self->symbols->head, symbol_make_function(function->name, return_type, arg_types));
 
+    // Capture function arguments in scope
+    init_scoped_symbols(self);
+
+    for (size_t i = 0; i < function->params.len; i++) {
+        AstParam param = function->params.items[i];
+        Type type = arg_types.items[i];
+        append(&self->symbols->head, symbol_make_variable(param.name, type, next_var(self, &type)));
+    }
+
     self->write_fn("%.*s:", STRING_FMT_ARGS(&function->name));
 
     gen_block(self, &function->block);
+
+    free_scoped_symbols(self);
 
     self->var = var; // Reset
 }
@@ -480,7 +490,7 @@ void gen_return(Generator *self, const AstExpr *return_) {
     }
 
     gen_expr(self, return_, inferred.type);
-    self->write_fn("ret.%s", ret_ext(inferred.type));
+    self->write_fn("ret%s", ret_ext(inferred.type));
 
     return;
 }
@@ -690,7 +700,33 @@ void gen_compound_ident(Generator *self, const Strings *idents, const Type *type
 }
 
 void gen_call(Generator *self, const AstCall *call, const Type *type) {
-    return;
+    Symbol *symbol = symbol_find(self->symbols, &call->name);
+    if (symbol == nullptr) {
+        report_error(&self->report, "unknown identifier %.*s", STRING_FMT_ARGS(&call->name));
+        return;
+    }
+
+    if (symbol->kind != SymbolFunction) {
+        report_error(&self->report, "cannot call %.*s", STRING_FMT_ARGS(&call->name));
+        return;
+    }
+
+    if (call->args.len != symbol->as.arg_types.len) {
+        report_error(&self->report, "argument count mismatch in call to %.*s, want %ld, have %ld",
+                     STRING_FMT_ARGS(&call->name),
+                     symbol->as.arg_types.len,
+                     call->args.len);
+        return;
+    }
+
+    for (size_t i = 0; i < symbol->as.arg_types.len; i++) {
+        Type type = symbol->as.arg_types.items[i];
+        AstExpr arg = call->args.items[i];
+        gen_expr(self, &arg, &type);
+    }
+
+
+    self->write_fn("call %.*s", STRING_FMT_ARGS(&call->name));
 }
 
 void init_scoped_symbols(Generator *self) {
