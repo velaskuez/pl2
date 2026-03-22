@@ -99,29 +99,30 @@ Type *type_dereference(const Type *from) {
     }
 }
 
-Type *type_make_pointer(Type *from) {
-    Type *type = calloc(1, sizeof(Type));
-    type->kind = PointerType;
-    type->layout = i64_type.layout;
-    type->as.pointer.type = from;
+Type type_make_pointer(Type *from) {
+    Type *type = {0};
+    type.kind = PointerType;
+    type.layout = i64_type.layout;
+    // TODO: should really be copying the types here
+    type.as.pointer.type = from;
 
     return type;
 }
 
-Type *type_make_array(Type *from, u32 length) {
-    Type *type = calloc(1, sizeof(Type));
-    type->kind = ArrayType;
-    type->layout.size = from->layout.size * length;
-    type->layout.alignment = from->layout.alignment;
-    type->as.array.length = length;
-    type->as.array.type = from;
+Type type_make_array(Type *from, u32 length) {
+    Type *type = {0};
+    type.kind = ArrayType;
+    type.layout.size = from->layout.size * length;
+    type.layout.alignment = from->layout.alignment;
+    type.as.array.length = length;
+    type.as.array.type = from;
 
     return type;
 }
 
-Type *type_make_struct(String name, const Types *types, const Strings *names) {
-    Type *type = calloc(1, sizeof(Type));
-    type->kind = StructType;
+Type type_make_struct(String name, const Types *types, const Strings *names) {
+    Type type = {0};
+    type.kind = StructType;
 
     TypeLayout layout = {0};
     layout.alignment = 8;
@@ -166,8 +167,8 @@ Type *type_make_struct(String name, const Types *types, const Strings *names) {
         layout.size += size;
     }}
 
-    type->layout = layout;
-    type->as.struct_ = struct_;
+    type.layout = layout;
+    type.as.struct_ = struct_;
 
     return type;
 }

@@ -84,8 +84,8 @@ bool type_cast(const Type *from, const Type *to);
 
 Type *type_dereference(const Type *from);
 
-Type *type_make_pointer(Type *from);
-Type *type_make_array(Type *from, u32 length);
-Type *type_make_struct(String name, const Types *types, const Strings *names);
+Type type_make_pointer(Type *from);
+Type type_make_array(Type *from, u32 length);
+Type type_make_struct(String name, const Types *types, const Strings *names);
 
 char *type_fmt(const Type *self);
