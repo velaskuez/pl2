@@ -171,3 +171,7 @@ Type *type_make_struct(String name, const Types *types, const Strings *names) {
 
     return type;
 }
+
+char *type_fmt(const Type *self) {
+    return "TODO";
+}

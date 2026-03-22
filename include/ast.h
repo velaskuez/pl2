@@ -9,6 +9,9 @@ typedef struct AstStatement AstStatement;
 
 typedef struct {
     Position position;
+
+    Type type;
+    bool coercible; // Number literals may be coerced to any other number type
 } AstNode;
 
 typedef struct {
@@ -117,7 +120,6 @@ typedef struct {
 
 struct AstExpr {
     AstNode node;
-    Type type;
 
     ExprKind kind;
     union {
@@ -148,6 +150,8 @@ typedef struct {
 } AstIndex;
 
 typedef struct {
+    AstNode node;
+
     LocationKind kind;
     union {
         String ident;
