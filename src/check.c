@@ -25,8 +25,8 @@ static void check_function(Checker *self, AstFunction *function);
 static void check_block(Checker *self, const AstBlock *block);
 static void check_statements(Checker *self, const AstStatements *statements);
 static void check_statement(Checker *self, AstStatement *statement);
-static Type check_ident(Checker *self, const String *ident);
-static Type check_compound_ident(Checker *self, const Strings *idents);
+static Type check_ident(Checker *self, AstIdent *ident);
+static Type check_compound_ident(Checker *self, AstIdents *idents);
 static Type check_index(Checker *self, AstIndex *index);
 static void check_location(Checker *self, AstLocation *location);
 static void check_assign(Checker *self, AstAssign *assign);
@@ -189,36 +189,38 @@ void check_statement(Checker *self, AstStatement *statement) {
     }
 }
 
-Type check_ident(Checker *self, const String *ident) {
-    Symbol *symbol = symbol_find_with_kind(self->symbols, ident, VariableSymbol);
+Type check_ident(Checker *self, AstIdent *ident) {
+    Symbol *symbol = symbol_find_with_kind(self->symbols, &ident->name, VariableSymbol);
     if (symbol == nullptr) {
-        report_error(self->report, "unknown identifier %.*s", STRING_FMT_ARGS(ident));
+        report_error(self->report, "unknown identifier %.*s", STRING_FMT_ARGS(&ident->name));
         longjmp(statement_jmp_buf, -1);
     }
+
+    ident->node.type = symbol->type;
+    ident->node.coercible = false;
 
     return symbol->type;
 }
 
-Type check_compound_ident(Checker *self, const Strings *idents) {
+Type check_compound_ident(Checker *self, AstIdents *idents) {
     assert(idents->len > 1);
 
-    String base = idents->items[0];
-    Symbol *symbol = symbol_find_with_kind(self->symbols, &base, VariableSymbol);
+    // TODO: annotate each ident with a type
+
+    AstIdent *base = &idents->items[0];
+    Symbol *symbol = symbol_find_with_kind(self->symbols, &base->name, VariableSymbol);
     if (symbol == nullptr) {
-        report_error(self->report, "unknown identifier %.*s", STRING_FMT_ARGS(&base));
+        report_error(self->report, "unknown identifier %.*s", STRING_FMT_ARGS(&base->name));
         longjmp(statement_jmp_buf, -1);
     }
 
     Type base_type = symbol->type;
     if (base_type.kind != StructType) {
-        report_error(self->report, "cannot access fields of %.*s - not a struct", STRING_FMT_ARGS(&base));
+        report_error(self->report, "cannot access fields of %.*s - not a struct", STRING_FMT_ARGS(&base->name));
         longjmp(statement_jmp_buf, -1);
     }
 
 
-    // TODO: do I need to annotate the type for each ident? What about embedded structs?
-    // Need to think about how to make this work nicely for code generation
-    // An AstNode wrapper around the String could be better
     return base_type;
 }
 
@@ -384,9 +386,9 @@ Type check_binary_op(Checker *self, AstBinaryOp *binary_op) {
 Type check_unary_op(Checker *self, AstUnaryOp *unary_op) {
     // TODO: sizeof can accept expressions too, new can accept type expressions once that's implemented
     assert(unary_op->expr->kind == ExprIdent);
-    Symbol *symbol = symbol_find_with_kind(self->symbols, &unary_op->expr->as.ident, TypeSymbol);
+    Symbol *symbol = symbol_find_with_kind(self->symbols, &unary_op->expr->as.ident.name, TypeSymbol);
     if (symbol == nullptr) {
-        report_error(self->report, "unknown type %.*s", STRING_FMT_ARGS(&unary_op->expr->as.ident));
+        report_error(self->report, "unknown type %.*s", STRING_FMT_ARGS(&unary_op->expr->as.ident.name));
         longjmp(statement_jmp_buf, -1);
     }
 

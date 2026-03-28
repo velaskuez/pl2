@@ -120,6 +120,17 @@ typedef struct {
     AstExprs args;
 } AstCall;
 
+typedef struct {
+    AstNode node;
+
+    String name;
+} AstIdent;
+
+typedef struct {
+    size_t len, cap;
+    AstIdent *items;
+} AstIdents;
+
 struct AstExpr {
     AstNode node;
 
@@ -128,8 +139,8 @@ struct AstExpr {
         AstBinaryOp binary_op;
         AstUnaryOp unary_op;
         AstValue value;
-        String ident;
-        Strings compound_ident;
+        AstIdent ident;
+        AstIdents compound_ident;
         AstCall call;
     } as;
 };
@@ -156,8 +167,8 @@ typedef struct {
 
     LocationKind kind;
     union {
-        String ident;
-        Strings compound_ident;
+        AstIdent ident;
+        AstIdents compound_ident;
         AstIndex index;
     } as;
 } AstLocation;

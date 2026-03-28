@@ -131,7 +131,7 @@ void ast_fmt_index(Writer *writer, const AstIndex *index) {
 void ast_fmt_location(Writer *writer, const AstLocation *location) {
     switch (location->kind) {
     case LocationIdent:
-        writer_append_string(writer, &location->as.ident);
+        writer_append_string(writer, &location->as.ident.name);
     break;
     case LocationCompoundIdent:
         ast_fmt_compound_ident(writer, &location->as.compound_ident);
@@ -197,7 +197,7 @@ void ast_fmt_expr(Writer *writer, const AstExpr *expr, int indent) {
         ast_fmt_value(writer, &expr->as.value);
         break;
     case ExprIdent:
-        writer_append_string(writer, &expr->as.ident);
+        writer_append_string(writer, &expr->as.ident.name);
         break;
     case ExprCompoundIdent:
         ast_fmt_compound_ident(writer, &expr->as.compound_ident);
@@ -259,11 +259,11 @@ void ast_fmt_unary_op(Writer *writer, const AstUnaryOp *unary_op) {
     writer_append_cstr(writer, ")");
 }
 
-void ast_fmt_compound_ident(Writer *writer, const Strings *idents) {
+void ast_fmt_compound_ident(Writer *writer, const AstIdents *idents) {
     char *sep = "";
     foreach(ident, idents) {
         writer_append_cstr(writer, sep);
-        writer_append_string(writer, ident);
+        writer_append_string(writer, &ident->name);
         sep = ".";
     }
 }

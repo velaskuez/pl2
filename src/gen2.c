@@ -92,8 +92,8 @@ static void gen_block(Generator *self, const AstBlock *block);
 static void gen_statements(Generator *self, const AstStatements *statements);
 static void gen_statement(Generator *self, const AstStatement *statement);
 static void gen_location(Generator *self, const AstLocation *location);
-static void gen_location_ident(Generator *self, const String *ident);
-static void gen_location_compound_ident(Generator *self, const Strings *idents);
+static void gen_location_ident(Generator *self, const AstIdent *ident);
+static void gen_location_compound_ident(Generator *self, const AstIdents *idents);
 static void gen_location_index(Generator *self, const AstIndex *index);
 static void gen_assign(Generator *self, const AstAssign *assign);
 static void gen_let(Generator *self, const AstLet *let);
@@ -208,14 +208,14 @@ void gen_location(Generator *self, const AstLocation *location) {
     }
 }
 
-void gen_location_ident(Generator *self, const String *ident) {
-    i32 local = find_variable(self->variables, ident);
+void gen_location_ident(Generator *self, const AstIdent *ident) {
+    i32 local = find_variable(self->variables, &ident->name);
     assert(local != -1);
 
-    self->write_fn("load%s %d", op_ext(self, nullptr), local); // TODO: AstNode for identifiers
+    self->write_fn("load%s %d", op_ext(self, &ident->node), local);
 }
 
-void gen_location_compound_ident(Generator *self, const Strings *idents) {
+void gen_location_compound_ident(Generator *self, const AstIdents *idents) {
 }
 
 void gen_location_index(Generator *self, const AstIndex *index) {

@@ -49,7 +49,8 @@ static int eof(Parser *self);
 
 static AstValue parse_value(Parser *self);
 static AstCall parse_call(Parser *self);
-static Strings parse_compound_ident(Parser *self);
+static AstIdent parse_ident(Parser *self);
+static AstIdents parse_compound_ident(Parser *self);
 static AstUnaryOp parse_unary_op(Parser *self);
 static AstExpr parse_prefix_expr(Parser *self);
 static BinaryOp parse_binary_op(Parser *self);
@@ -191,17 +192,26 @@ AstCall parse_call(Parser *self) {
     return call;
 }
 
-Strings parse_compound_ident(Parser *self) {
-    Strings idents = {0};
+AstIdent parse_ident(Parser *self) {
+    AstIdent ident = {0};
+    ident.node = make_ast_node(self);
+    ident.name = expect(self, TokenIdent).value;
+
+    return ident;
+}
+
+AstIdents parse_compound_ident(Parser *self) {
+    AstIdents idents = {0};
 
     while (!eof(self)) {
-        String ident = expect(self, TokenIdent).value;
+        AstIdent ident = parse_ident(self);
         append(&idents, ident);
         if (!eat(self, TokenDot)) break;
     }
 
     return idents;
 }
+
 
 AstUnaryOp parse_unary_op(Parser *self) {
     AstUnaryOp unary_op = {0};
@@ -245,7 +255,7 @@ AstExpr parse_prefix_expr(Parser *self) {
         expr.as.compound_ident = parse_compound_ident(self);
     } else if (at(self, TokenIdent)) {
         expr.kind = ExprIdent;
-        expr.as.ident = expect(self, TokenIdent).value;
+        expr.as.ident = parse_ident(self);
     } else {
         report_unexpected_token_error(self);
     }
@@ -425,7 +435,7 @@ AstLocation parse_location(Parser *self) {
 
     if (nth(self, 1).kind == TokenEqual) {
         location.kind = LocationIdent;
-        location.as.ident = expect(self, TokenIdent).value;
+        location.as.ident = parse_ident(self);
     } else if (nth(self, 1).kind == TokenDot) {
         location.kind = LocationCompoundIdent;
         location.as.compound_ident = parse_compound_ident(self);
