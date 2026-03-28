@@ -450,6 +450,8 @@ Type check_call(Checker *self, AstCall *call) {
 
         i++;
     }
+
+    return symbol->type;
 }
 
 void check_expr(Checker *self, AstExpr *expr) {

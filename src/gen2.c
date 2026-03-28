@@ -11,6 +11,7 @@
 #include "symbol2.h"
 #include "ast.h"
 #include "report.h"
+#include "util.h"
 
 typedef struct {
     String name;
@@ -95,15 +96,14 @@ static void gen_location_ident(Generator *self, const String *ident);
 static void gen_location_compound_ident(Generator *self, const Strings *idents);
 static void gen_location_index(Generator *self, const AstIndex *index);
 static void gen_assign(Generator *self, const AstAssign *assign);
-// static void gen_let(Generator *self, const AstLet *let);
-// static void gen_statement_expr(Generator *self, const AstExpr *return_);
-// static void gen_return(Generator *self, const AstExpr *return_);
-// static void gen_if(Generator *self, const AstIf *if_);
-// static void gen_while(Generator *self, const AstWhile *while_);
+static void gen_let(Generator *self, const AstLet *let);
+static void gen_return(Generator *self, const AstExpr *return_);
+static void gen_if(Generator *self, const AstIf *if_);
+static void gen_while(Generator *self, const AstWhile *while_);
 
 static void gen_expr(Generator *self, const AstExpr *expr);
 static void gen_binary_op(Generator *self, const AstBinaryOp *binary_op);
-// static void gen_comparison_op(Generator *self, const char *op_ext, const char *jmp_op_ext);
+static void gen_comparison_op(Generator *self, const char *op_ext, const char *jmp_op_ext);
 // static void gen_unary_op_new(Generator *self, const AstExpr *expr);
 // static void gen_unary_op(Generator *self, const AstUnaryOp *unary_op);
 static void gen_value(Generator *self, const AstValue *value, const AstNode *node);
@@ -141,12 +141,15 @@ void gen_function(Generator *self, const AstFunction *function) {
     int local = self->local;
     self->ret_ext = ret_ext(self, &function->node);
 
-    self->write_fn("%.*s:\n", function->name);
+    self->write_fn("%.*s:\n", STRING_FMT_ARGS(&function->name));
 
     self->variables = init_scoped_variables(self->variables);
 
     foreach(param, &function->params) {
         i32 local = next_local(self, &param->node);
+
+        // TODO: check.c will guarantee there are no invalid redefinitions
+        // but we should still assert that here
         append(self->variables->head, make_variable(param->name, local));
     }
 
@@ -176,10 +179,13 @@ void gen_statement(Generator *self, const AstStatement *statement) {
         gen_assign(self, &statement->as.assign);
         break;
     case StatementLet:
+        gen_let(self, &statement->as.let);
         break;
     case StatementExpr:
+        gen_expr(self, &statement->as.expr);
         break;
     case StatementReturn:
+        gen_return(self, statement->as.return_);
         break;
     case StatementIf:
         break;
@@ -206,7 +212,7 @@ void gen_location_ident(Generator *self, const String *ident) {
     i32 local = find_variable(self->variables, ident);
     assert(local != -1);
 
-    self->write_fn("load%s %d", op_ext(self, nullptr)); // TODO: AstNode for identifiers
+    self->write_fn("load%s %d", op_ext(self, nullptr), local); // TODO: AstNode for identifiers
 }
 
 void gen_location_compound_ident(Generator *self, const Strings *idents) {
@@ -219,6 +225,36 @@ void gen_assign(Generator *self, const AstAssign *assign) {
     gen_location(self, &assign->location);
     gen_expr(self, &assign->expr);
 }
+
+void gen_let(Generator *self, const AstLet *let) {
+    i32 local = next_local(self, &let->expr->node);
+
+    // TODO: check.c will guarantee there are no invalid redefinitions
+    // but we should still assert that here
+    append(self->variables->head, make_variable(let->name, local));
+
+    if (let->expr != nullptr) {
+        gen_expr(self, let->expr);
+        self->write_fn("store%s %d", op_ext(self, &let->expr->node), local);
+    }
+}
+
+void gen_return(Generator *self, const AstExpr *expr) {
+    if (expr != nullptr) {
+        assert(self->ret_ext != nullptr && self->ret_ext[0] != '\0');
+
+        const char *ext = self->ret_ext;
+        gen_expr(self, expr);
+        self->write_fn("ret%s", ext);
+        return;
+    }
+
+    self->write_fn("ret");
+}
+
+// TODO
+void gen_if(Generator *self, const AstIf *if_) {}
+void gen_while(Generator *self, const AstWhile *while_) {}
 
 void gen_expr(Generator *self, const AstExpr *expr) {
     switch (expr->kind) {
@@ -239,44 +275,90 @@ void gen_expr(Generator *self, const AstExpr *expr) {
     }
 }
 
+void gen_comparison_op(Generator *self, const char *ext, const char *jmp_ext) {
+    int l1 = self->label++;
+    int l2 = self->label++;
+
+    self->write_fn("cmp%s", ext);
+    self->write_fn("jmp%s l%d", jmp_ext, l1);
+    self->write_fn("push.w 0");
+    self->write_fn("jmp l%d", l2);
+    self->write_fn("l%d:", l1);
+    self->write_fn("push.w 1");
+    self->write_fn("l%d:", l2);
+}
+
 void gen_binary_op(Generator *self, const AstBinaryOp *binary_op) {
+    // TODO: The same code for a compound identifier location can be re-used for a
+    // compound identifier expression, the only difference being the former will do
+    // an aload and the latter will do an astore. Compound identifiers could have been
+    // parsed as a binary operation, but they weren't and now code reuse is easy. It would
+    // be worth reusing the index location type too, but will need tweaking to
+    // parse a list of expressions (all of which should resolve/coerce to i64)
+    if (binary_op->op == BinaryOpIndex) {
+        gen_expr(self, binary_op->left);
+
+        // This should have been checked earlier - the rhs must be I64
+        gen_expr(self, binary_op->right);
+        self->write_fn("mul.d %d", binary_op->left->node.type.layout.size);
+        self->write_fn("aload%s", op_ext(self, &binary_op->left->node));
+        return;
+    }
+
     gen_expr(self, binary_op->left);
     gen_expr(self, binary_op->right);
 
+    const char *ext = op_ext(self, &binary_op->left->node);
+
     switch (binary_op->op) {
     case BinaryOpEq:
+        gen_comparison_op(self, ext, ".eq");
 		break;
     case BinaryOpNeq:
+        gen_comparison_op(self, ext, ".neq");
 		break;
     case BinaryOpLt:
+        gen_comparison_op(self, ext, ".lt");
 		break;
     case BinaryOpLe:
+        gen_comparison_op(self, ext, ".le");
 		break;
     case BinaryOpGt:
+        gen_comparison_op(self, ext, ".gt");
 		break;
     case BinaryOpGe:
+        gen_comparison_op(self, ext, ".ge");
 		break;
     case BinaryOpAdd:
-        self->write_fn("add%s", op_ext(self, &binary_op->left->node));
+        self->write_fn("add%s", ext);
 		break;
     case BinaryOpSub:
-        self->write_fn("sub%s", op_ext(self, &binary_op->left->node));
+        self->write_fn("sub%s", ext);
 		break;
     case BinaryOpMul:
-        self->write_fn("mul%s", op_ext(self, &binary_op->left->node));
+        self->write_fn("mul%s", ext);
 		break;
     case BinaryOpDiv:
-        self->write_fn("div%s", op_ext(self, &binary_op->left->node));
+        self->write_fn("div%s", ext);
 		break;
     case BinaryOpAnd:
+        self->write_fn("add.w");
+        self->write_fn("push.w 2");
+        gen_comparison_op(self, ".w", ".eq");
 		break;
     case BinaryOpOr:
+        self->write_fn("add.w");
+        self->write_fn("push.w 1");
+        gen_comparison_op(self, ".w", ".ge");
 		break;
     case BinaryOpBitAnd:
+        panic("unimplemented");
 		break;
     case BinaryOpBitOr:
+        panic("unimplemented");
 		break;
     case BinaryOpIndex:
+        panic("unreachable");
 		break;
     }
 }
@@ -324,6 +406,8 @@ i32 next_local(Generator *self, const AstNode *node) {
         self->local += 2;
         break;
     }
+
+    return local;
 }
 
 char *op_ext(Generator *self, const AstNode *node) {

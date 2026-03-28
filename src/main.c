@@ -5,7 +5,7 @@
 
 #include "ast.h"
 #include "parse.h"
-#include "gen.h"
+#include "gen2.h"
 #include "token.h"
 #include "util.h"
 #include "str.h"
