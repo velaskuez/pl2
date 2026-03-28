@@ -175,9 +175,7 @@ void check_struct(Checker *self, const AstStruct *struct_) {
         append(&field_types, symbol->type);
     }
 
-    // TODO:
-    //  - seems redundant to store struct name in Type
-    //  - we don't need to allocate Type
+    // TODO: seems redundant to store struct name in Type
     Type type = type_make_struct(struct_->name, &field_types, &field_names);
     append(&self->symbols->head, symbol_make_type(struct_->name, type));
 }
@@ -232,6 +230,11 @@ void check_function(Checker *self, AstFunction *function) {
     check_block(self, &function->block);
 
     free_scoped_symbols(self);
+
+    if (!type_equal(return_type, void_type) && !self->current_function_returns) {
+        report_error(self->report, "%.*'s return type is not void - must return a value", STRING_FMT_ARGS(&function->name));
+        return;
+    }
 }
 
 void check_block(Checker *self, const AstBlock *block) {
@@ -393,6 +396,7 @@ Type check_binary_op(Checker *self, AstBinaryOp *binary_op) {
     check_expr(self, binary_op->left);
     check_expr(self, binary_op->right);
 
+    // Index - LHS must be indexable, RHS must be i64
     if (binary_op->op == BinaryOpIndex) {
         if (!(binary_op->right->node.coercible && type_coerce(&binary_op->right->node.type, &i64_type)) && !type_equal(&binary_op->right->node.type, &i64_type)) {
             report_error(self->report, "<type> cannot be indexed by non-i64 type");
@@ -411,6 +415,7 @@ Type check_binary_op(Checker *self, AstBinaryOp *binary_op) {
         return *type;
     }
 
+    // For all other operations, operands must be comparable
     if (!type_equal(&binary_op->left->node.type, &binary_op->right->node.type)) {
         bool left_coercible = binary_op->left->node.coercible && type_coerce(&binary_op->left->node.type, &binary_op->right->node.type);
         bool right_coercible = binary_op->right->node.coercible && type_coerce(&binary_op->right->node.type, &binary_op->left->node.type);
@@ -510,7 +515,7 @@ Type check_call(Checker *self, AstCall *call) {
 
     Types argument_types = symbol->as.function.argument_types;
     if (call->args.len != argument_types.len) {
-        report_error(self->report, "argument length mismatch, want %ld, have %ld", argument_types.len, call->args.len);
+        report_error(self->report, "argument count mismatch, want %ld, have %ld", argument_types.len, call->args.len);
         longjmp(statement_jmp_buf, -1);
     }
 
