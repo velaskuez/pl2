@@ -225,21 +225,23 @@ Type check_compound_ident(Checker *self, AstIdents *idents) {
 }
 
 Type check_index(Checker *self, AstIndex *index) {
-    Symbol *symbol = symbol_find_with_kind(self->symbols, &index->ident, VariableSymbol);
-    if (symbol == nullptr) {
-        report_error(self->report, "unknown identifier %.*s", STRING_FMT_ARGS(&index->ident));
+    // Identifier type will be either pointer/array
+    // Expression/location type will be the dereferenced type
+
+    Type ident_type = check_ident(self, &index->ident);
+
+    Type *type = type_dereference(&ident_type);
+    if (type == nullptr) {
+        report_error(self->report, "%.*s cannot be dereferenced", STRING_FMT_ARGS(&index->ident.name));
         longjmp(statement_jmp_buf, -1);
     }
 
-    Type *type = type_dereference(&symbol->type);
-    if (type == nullptr) {
-        report_error(self->report, "%.*s cannot be dereferenced", STRING_FMT_ARGS(&index->ident));
-        longjmp(statement_jmp_buf, -1);
-    }
+    index->node.type = *type;
+    index->node.coercible = false;
 
     check_expr(self, &index->expr);
     if (!type_equal(&index->expr.node.type, &i64_type)) {
-        report_error(self->report, "%.*s cannot be indexed by non-i64 type", STRING_FMT_ARGS(&index->ident));
+        report_error(self->report, "%.*s cannot be indexed by non-i64 type", STRING_FMT_ARGS(&index->ident.name));
         longjmp(statement_jmp_buf, -1);
     }
 

@@ -131,6 +131,7 @@ typedef struct {
     AstIdent *items;
 } AstIdents;
 
+// TODO: expr doesn't need AstNode, it's variants *should* have it
 struct AstExpr {
     AstNode node;
 
@@ -158,10 +159,13 @@ typedef enum {
 } LocationKind;
 
 typedef struct {
-    String ident;
+    AstNode node;
+
+    AstIdent ident;
     AstExpr expr;
 } AstIndex;
 
+// TODO: location doesn't need AstNode, it's variants have it
 typedef struct {
     AstNode node;
 

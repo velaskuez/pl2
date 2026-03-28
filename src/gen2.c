@@ -107,9 +107,9 @@ static void gen_comparison_op(Generator *self, const char *op_ext, const char *j
 // static void gen_unary_op_new(Generator *self, const AstExpr *expr);
 // static void gen_unary_op(Generator *self, const AstUnaryOp *unary_op);
 static void gen_value(Generator *self, const AstValue *value, const AstNode *node);
-// static void gen_ident(Generator *self, const String *ident);
-// static void gen_compound_ident(Generator *self, const Strings *idents);
-// static void gen_call(Generator *self, const AstCall *call);
+static void gen_ident(Generator *self, const AstIdent *ident);
+static void gen_compound_ident(Generator *self, const AstIdents *idents);
+static void gen_call(Generator *self, const AstCall *call);
 
 jmp_buf fail_buf;
 
@@ -212,18 +212,32 @@ void gen_location_ident(Generator *self, const AstIdent *ident) {
     i32 local = find_variable(self->variables, &ident->name);
     assert(local != -1);
 
-    self->write_fn("load%s %d", op_ext(self, &ident->node), local);
+    self->write_fn("store%s %d", op_ext(self, &ident->node), local);
 }
 
 void gen_location_compound_ident(Generator *self, const AstIdents *idents) {
 }
 
 void gen_location_index(Generator *self, const AstIndex *index) {
+    // Identifier type will be either pointer/array
+    // Expression/location type will be the dereferenced type
+
+    i32 local = find_variable(self->variables, &index->ident.name);
+    assert(local != -1);
+
+    self->write_fn("load.d %d", local);
+    gen_expr(self, &index->expr);
+    self->write_fn("mul.d %d", index->node.type.layout.size);
+
+    // TODO: the only difference between expression and location
+    // is aload/astore. When expressions are refactored to use
+    // AstIndex rather than binary op index, reuse the code.
+    self->write_fn("astore%s", op_ext(self, &index->node));
 }
 
 void gen_assign(Generator *self, const AstAssign *assign) {
-    gen_location(self, &assign->location);
     gen_expr(self, &assign->expr);
+    gen_location(self, &assign->location);
 }
 
 void gen_let(Generator *self, const AstLet *let) {
@@ -267,6 +281,7 @@ void gen_expr(Generator *self, const AstExpr *expr) {
         gen_value(self, &expr->as.value, &expr->node);
 		break;
     case ExprIdent:
+        gen_ident(self, &expr->as.ident);
 		break;
     case ExprCompoundIdent:
 		break;
@@ -376,6 +391,23 @@ void gen_value(Generator *self, const AstValue *value, const AstNode *node) {
     case ValueNumber:
         self->write_fn("push%s %ld", op_ext(self, node), value->as.number);
     }
+}
+
+void gen_ident(Generator *self, const AstIdent *ident) {
+    i32 local = find_variable(self->variables, &ident->name);
+    assert(local != -1);
+
+    self->write_fn("load%s %d", op_ext(self, &ident->node), local);
+}
+
+void gen_compound_ident(Generator *self, const AstIdents *idents) {}
+
+void gen_call(Generator *self, const AstCall *call) {
+    foreach(expr, &call->args) {
+        gen_expr(self, expr);
+    }
+
+    self->write_fn("call %.*s", STRING_FMT_ARGS(&call->name));
 }
 
 i32 next_local(Generator *self, const AstNode *node) {

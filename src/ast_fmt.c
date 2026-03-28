@@ -122,7 +122,7 @@ void ast_fmt_return(Writer *writer, const AstExpr *expr, int indent) {
 }
 
 void ast_fmt_index(Writer *writer, const AstIndex *index) {
-    writer_append_string(writer, &index->ident);
+    writer_append_string(writer, &index->ident.name);
     writer_append_cstr(writer, "[");
     ast_fmt_expr(writer, &index->expr, 0);
     writer_append_cstr(writer, "]");
