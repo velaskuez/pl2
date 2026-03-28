@@ -29,6 +29,8 @@ typedef struct {
 } AstType;
 
 typedef struct {
+    AstNode node;
+
     String name;
     AstType type;
 } AstParam;

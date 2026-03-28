@@ -324,7 +324,10 @@ AstType parse_type(Parser *self) {
 }
 
 AstParam parse_param(Parser *self) {
+    AstNode node = make_ast_node(self);
+
     AstParam param = {0};
+    param.node = node;
     param.name = expect(self, TokenIdent).value;
     param.type = parse_type(self);
 
