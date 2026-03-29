@@ -27,7 +27,7 @@ static void check_statements(Checker *self, const AstStatements *statements);
 static void check_statement(Checker *self, AstStatement *statement);
 static Type check_ident(Checker *self, AstIdent *ident);
 static Type check_compound_ident(Checker *self, AstIdents *idents);
-static Type check_index(Checker *self, AstIndex *index);
+static void check_index(Checker *self, AstIndex *index);
 static void check_location(Checker *self, AstLocation *location);
 static void check_assign(Checker *self, AstAssign *assign);
 static void check_let(Checker *self, AstLet *let);
@@ -208,29 +208,24 @@ Type check_compound_ident(Checker *self, AstIdents *idents) {
     // TODO: annotate each ident with a type
 
     AstIdent *base = &idents->items[0];
-    Symbol *symbol = symbol_find_with_kind(self->symbols, &base->name, VariableSymbol);
-    if (symbol == nullptr) {
-        report_error(self->report, "unknown identifier %.*s", STRING_FMT_ARGS(&base->name));
-        longjmp(statement_jmp_buf, -1);
-    }
+    check_ident(self, base);
 
-    Type base_type = symbol->type;
+    Type base_type = base->node.type;
     if (base_type.kind != StructType) {
         report_error(self->report, "cannot access fields of %.*s - not a struct", STRING_FMT_ARGS(&base->name));
         longjmp(statement_jmp_buf, -1);
     }
 
-
     return base_type;
 }
 
-Type check_index(Checker *self, AstIndex *index) {
+void check_index(Checker *self, AstIndex *index) {
     // Identifier type will be either pointer/array
     // Expression/location type will be the dereferenced type
 
-    Type ident_type = check_ident(self, &index->ident);
+    check_ident(self, &index->ident);
 
-    Type *type = type_dereference(&ident_type);
+    Type *type = type_dereference(&index->ident.node.type);
     if (type == nullptr) {
         report_error(self->report, "%.*s cannot be dereferenced", STRING_FMT_ARGS(&index->ident.name));
         longjmp(statement_jmp_buf, -1);
@@ -244,27 +239,20 @@ Type check_index(Checker *self, AstIndex *index) {
         report_error(self->report, "%.*s cannot be indexed by non-i64 type", STRING_FMT_ARGS(&index->ident.name));
         longjmp(statement_jmp_buf, -1);
     }
-
-    return *type;
 }
 
 void check_location(Checker *self, AstLocation *location) {
-    Type type = {0};
-
     switch (location->kind) {
     case LocationIdent:
-        type = check_ident(self, &location->as.ident);
+        check_ident(self, &location->as.ident);
         break;
     case LocationCompoundIdent:
-        type = check_compound_ident(self, &location->as.compound_ident);
+        check_compound_ident(self, &location->as.compound_ident);
         break;
     case LocationIndex:
-        type = check_index(self, &location->as.index);
+        check_index(self, &location->as.index);
         break;
     }
-
-    location->node.type = type;
-    location->node.coercible = false;
 }
 
 void check_assign(Checker *self, AstAssign *assign) {
@@ -272,12 +260,15 @@ void check_assign(Checker *self, AstAssign *assign) {
 
     check_expr(self, &assign->expr);
 
-    if (!(assign->expr.node.coercible && type_coerce(&assign->expr.node.type, &assign->location.node.type)) && !type_equal(&assign->location.node.type, &assign->expr.node.type)) {
-        report_type_mismatch_error1(self->report, &assign->location.node.type, &assign->expr.node.type);
+    AstNode *location_node = ast_location_node(&assign->location);
+    assert(location_node != nullptr);
+
+    if (!(assign->expr.node.coercible && type_coerce(&assign->expr.node.type, &location_node->type)) && !type_equal(&location_node->type, &assign->expr.node.type)) {
+        report_type_mismatch_error1(self->report, &location_node->type, &assign->expr.node.type);
         longjmp(statement_jmp_buf, -1);
     }
 
-    assign->expr.node.type = assign->location.node.type;
+    assign->expr.node.type = location_node->type;
     assign->expr.node.coercible = false;
 }
 

@@ -165,10 +165,7 @@ typedef struct {
     AstExpr expr;
 } AstIndex;
 
-// TODO: location doesn't need AstNode, its variants have it
 typedef struct {
-    AstNode node;
-
     LocationKind kind;
     union {
         AstIdent ident;
@@ -238,3 +235,6 @@ typedef struct {
     AstStructs structs;
     AstFunctions functions;
 } AstFile;
+
+AstNode *ast_location_node(AstLocation *location);
+AstNode *ast_expr_node(AstExpr *expr);

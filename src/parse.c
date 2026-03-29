@@ -431,10 +431,7 @@ AstIndex parse_index(Parser *self) {
 }
 
 AstLocation parse_location(Parser *self) {
-    AstNode node = make_ast_node(self);
-
     AstLocation location = {0};
-    location.node = node;
 
     if (nth(self, 1).kind == TokenEqual) {
         location.kind = LocationIdent;
