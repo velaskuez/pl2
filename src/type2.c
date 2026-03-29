@@ -100,7 +100,7 @@ Type *type_dereference(const Type *from) {
 }
 
 Type type_make_pointer(Type *from) {
-    Type *type = {0};
+    Type type = {0};
     type.kind = PointerType;
     type.layout = i64_type.layout;
     // TODO: should really be copying the types here
@@ -110,7 +110,7 @@ Type type_make_pointer(Type *from) {
 }
 
 Type type_make_array(Type *from, u32 length) {
-    Type *type = {0};
+    Type type = {0};
     type.kind = ArrayType;
     type.layout.size = from->layout.size * length;
     type.layout.alignment = from->layout.alignment;
@@ -133,12 +133,13 @@ Type type_make_struct(String name, const Types *types, const Strings *names) {
     {size_t i = 0;
     for (const Type *field_type = types->items; field_type < types->items + types->len; field_type++, i++) {
         u32 offset = layout.size;
-        u32 size = type->layout.size;
+        u32 size = type.layout.size;
         u32 padding = 0;
 
         TypeStructField field = {0};
         field.offset = offset;
-        field.type = type;
+        field.type = calloc(1, sizeof(Type));
+        *field.type = type;
 
         // If padding < 8, then we may have room to add in the next field
         padding = 8 - (offset % 8);
@@ -157,7 +158,7 @@ Type type_make_struct(String name, const Types *types, const Strings *names) {
         //  - They both have the same alignment
         //  - The first field is placed so that the next field will
         //    be correctly aligned
-        size_t field_alignment = type->layout.alignment;
+        size_t field_alignment = type.layout.alignment;
         size_t next_field_alignment = types->items[i+1].layout.alignment;
         if (field_alignment == next_field_alignment ||
                 (field_alignment % offset == 0 && next_field_alignment < field_alignment)) {

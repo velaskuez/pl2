@@ -44,14 +44,3 @@ void report_warning(Report *self, const char *fmt, ...) {
 
     fprintf(stderr, "\n");
 }
-
-void report_type_mismatch_error(Report *self, const Type *want, const Type *have) {
-    report_error(self, "types don't match\n"
-                 " ~ want %s%.*s\n"
-                 " ~ have %s%.*s",
-                 want->pointer ? "*" : "",
-                 STRING_FMT_ARGS(&want->key),
-                 have->pointer ? "*" : "",
-                 STRING_FMT_ARGS(&have->key));
-    return;
-}

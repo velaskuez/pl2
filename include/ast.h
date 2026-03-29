@@ -131,7 +131,7 @@ typedef struct {
     AstIdent *items;
 } AstIdents;
 
-// TODO: expr doesn't need AstNode, it's variants *should* have it
+// TODO: expr doesn't need AstNode, its variants *should* have it
 struct AstExpr {
     AstNode node;
 
@@ -165,7 +165,7 @@ typedef struct {
     AstExpr expr;
 } AstIndex;
 
-// TODO: location doesn't need AstNode, it's variants have it
+// TODO: location doesn't need AstNode, its variants have it
 typedef struct {
     AstNode node;
 

@@ -5,7 +5,7 @@
 
 #include "ast.h"
 #include "parse.h"
-#include "gen2.h"
+// #include "gen.h"
 #include "token.h"
 #include "util.h"
 #include "str.h"
@@ -33,8 +33,8 @@ int main() {
 
     // ast_fmt_file(&printf_writer, &file);
 
-    Generator gen = {0};
-    gen_init(&gen);
+    // Generator gen = {0};
+    // gen_init(&gen);
 
-    gen_file(&gen, &file);
+    // gen_file(&gen, &file);
 }

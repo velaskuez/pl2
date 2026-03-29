@@ -422,7 +422,7 @@ AstIndex parse_index(Parser *self) {
     AstIndex index = {0};
     index.node = node;
 
-    index.ident = expect(self, TokenIdent).value;
+    index.ident = parse_ident(self);
     expect(self, TokenLBrack);
     index.expr = parse_expr(self, 0);
     expect(self, TokenRBrack);
