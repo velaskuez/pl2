@@ -26,7 +26,7 @@ static void check_block(Checker *self, const AstBlock *block);
 static void check_statements(Checker *self, const AstStatements *statements);
 static void check_statement(Checker *self, AstStatement *statement);
 static Type check_ident(Checker *self, AstIdent *ident);
-static Type check_compound_ident(Checker *self, AstIdents *idents);
+static Type check_compound_ident(Checker *self, AstCompoundIdent *compound_ident);
 static void check_index(Checker *self, AstIndex *index);
 static void check_location(Checker *self, AstLocation *location);
 static void check_assign(Checker *self, AstAssign *assign);
@@ -202,12 +202,12 @@ Type check_ident(Checker *self, AstIdent *ident) {
     return symbol->type;
 }
 
-Type check_compound_ident(Checker *self, AstIdents *idents) {
-    assert(idents->len > 1);
+Type check_compound_ident(Checker *self, AstCompoundIdent *compound_ident) {
+    assert(compound_ident->idents.len > 1);
 
     // TODO: annotate each ident with a type
 
-    AstIdent *base = &idents->items[0];
+    AstIdent *base = &compound_ident->idents.items[0];
     check_ident(self, base);
 
     Type base_type = base->node.type;
@@ -215,6 +215,8 @@ Type check_compound_ident(Checker *self, AstIdents *idents) {
         report_error(self->report, "cannot access fields of %.*s - not a struct", STRING_FMT_ARGS(&base->name));
         longjmp(statement_jmp_buf, -1);
     }
+
+    compound_ident->node.type = base_type;
 
     return base_type;
 }

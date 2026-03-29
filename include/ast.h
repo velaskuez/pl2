@@ -131,6 +131,12 @@ typedef struct {
     AstIdent *items;
 } AstIdents;
 
+typedef struct {
+    AstNode node;
+
+    AstIdents idents;
+} AstCompoundIdent;
+
 // TODO: expr doesn't need AstNode, its variants *should* have it
 struct AstExpr {
     AstNode node;
@@ -141,7 +147,7 @@ struct AstExpr {
         AstUnaryOp unary_op;
         AstValue value;
         AstIdent ident;
-        AstIdents compound_ident;
+        AstCompoundIdent compound_ident;
         AstCall call;
     } as;
 };
@@ -169,7 +175,7 @@ typedef struct {
     LocationKind kind;
     union {
         AstIdent ident;
-        AstIdents compound_ident;
+        AstCompoundIdent compound_ident;
         AstIndex index;
     } as;
 } AstLocation;

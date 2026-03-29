@@ -50,7 +50,7 @@ static int eof(Parser *self);
 static AstValue parse_value(Parser *self);
 static AstCall parse_call(Parser *self);
 static AstIdent parse_ident(Parser *self);
-static AstIdents parse_compound_ident(Parser *self);
+static AstCompoundIdent parse_compound_ident(Parser *self);
 static AstUnaryOp parse_unary_op(Parser *self);
 static AstExpr parse_prefix_expr(Parser *self);
 static BinaryOp parse_binary_op(Parser *self);
@@ -200,16 +200,19 @@ AstIdent parse_ident(Parser *self) {
     return ident;
 }
 
-AstIdents parse_compound_ident(Parser *self) {
-    AstIdents idents = {0};
+AstCompoundIdent parse_compound_ident(Parser *self) {
+    AstNode node = make_ast_node(self);
+
+    AstCompoundIdent compound_ident = {0};
+    compound_ident.node = node;
 
     while (!eof(self)) {
         AstIdent ident = parse_ident(self);
-        append(&idents, ident);
+        append(&compound_ident.idents, ident);
         if (!eat(self, TokenDot)) break;
     }
 
-    return idents;
+    return compound_ident;
 }
 
 

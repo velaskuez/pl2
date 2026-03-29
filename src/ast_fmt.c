@@ -259,9 +259,9 @@ void ast_fmt_unary_op(Writer *writer, const AstUnaryOp *unary_op) {
     writer_append_cstr(writer, ")");
 }
 
-void ast_fmt_compound_ident(Writer *writer, const AstIdents *idents) {
+void ast_fmt_compound_ident(Writer *writer, const AstCompoundIdent *compound_ident) {
     char *sep = "";
-    foreach(ident, idents) {
+    foreach(ident, &compound_ident->idents) {
         writer_append_cstr(writer, sep);
         writer_append_string(writer, &ident->name);
         sep = ".";

@@ -5,7 +5,7 @@ AstNode *ast_location_node(AstLocation *location) {
     case LocationIdent:
         return &location->as.ident.node;
     case LocationCompoundIdent:
-        return &location->as.compound_ident.items[0].node; // TODO: should be last type
+        return &location->as.compound_ident.node;
     case LocationIndex:
         return &location->as.index.node;
     }

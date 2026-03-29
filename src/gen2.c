@@ -93,7 +93,7 @@ static void gen_statements(Generator *self, const AstStatements *statements);
 static void gen_statement(Generator *self, const AstStatement *statement);
 static void gen_location(Generator *self, const AstLocation *location);
 static void gen_location_ident(Generator *self, const AstIdent *ident);
-static void gen_location_compound_ident(Generator *self, const AstIdents *idents);
+static void gen_location_compound_ident(Generator *self, const AstCompoundIdent *compound_ident);
 static void gen_location_index(Generator *self, const AstIndex *index);
 static void gen_assign(Generator *self, const AstAssign *assign);
 static void gen_let(Generator *self, const AstLet *let);
@@ -108,7 +108,7 @@ static void gen_comparison_op(Generator *self, const char *op_ext, const char *j
 // static void gen_unary_op(Generator *self, const AstUnaryOp *unary_op);
 static void gen_value(Generator *self, const AstValue *value, const AstNode *node);
 static void gen_ident(Generator *self, const AstIdent *ident);
-static void gen_compound_ident(Generator *self, const AstIdents *idents);
+static void gen_compound_ident(Generator *self, const AstCompoundIdent *compound_ident);
 static void gen_call(Generator *self, const AstCall *call);
 
 jmp_buf fail_buf;
@@ -215,7 +215,7 @@ void gen_location_ident(Generator *self, const AstIdent *ident) {
     self->write_fn("store%s %d", op_ext(self, &ident->node), local);
 }
 
-void gen_location_compound_ident(Generator *self, const AstIdents *idents) {
+void gen_location_compound_ident(Generator *self, const AstCompoundIdent *compound_ident) {
 }
 
 void gen_location_index(Generator *self, const AstIndex *index) {
@@ -400,7 +400,7 @@ void gen_ident(Generator *self, const AstIdent *ident) {
     self->write_fn("load%s %d", op_ext(self, &ident->node), local);
 }
 
-void gen_compound_ident(Generator *self, const AstIdents *idents) {}
+void gen_compound_ident(Generator *self, const AstCompoundIdent *compound_ident) {}
 
 void gen_call(Generator *self, const AstCall *call) {
     foreach(expr, &call->args) {
