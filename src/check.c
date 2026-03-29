@@ -315,14 +315,17 @@ Type check_binary_op(Checker *self, AstBinaryOp *binary_op) {
             longjmp(statement_jmp_buf, -1);
         }
 
-        binary_op->right->node.coercible = false;
         binary_op->right->node.type = i64_type;
+        binary_op->right->node.coercible = false;
 
         Type *type = type_dereference(&binary_op->left->node.type);
         if (type == nullptr) {
             report_error(self->report, "<type> cannot be indexed");
             longjmp(statement_jmp_buf, -1);
         }
+
+        binary_op->node.type = *type;
+        binary_op->node.coercible = false;
 
         return *type;
     }
@@ -375,6 +378,9 @@ Type check_binary_op(Checker *self, AstBinaryOp *binary_op) {
         break;
     }
 
+    binary_op->node.type = type;
+    binary_op->node.coercible = binary_op->left->node.coercible && binary_op->right->node.coercible;
+
     return type;
 }
 
@@ -387,20 +393,30 @@ Type check_unary_op(Checker *self, AstUnaryOp *unary_op) {
         longjmp(statement_jmp_buf, -1);
     }
 
+    Type type = {0};
     switch (unary_op->op) {
     case UnaryOpSizeOf:
-        return i64_type;
+        type = i64_type;
     case UnaryOpNew:
-        return type_make_pointer(&symbol->type);
+        type = type_make_pointer(&symbol->type);
     }
+
+    unary_op->node.type = type;
+    unary_op->node.coercible = false;
+
+    return type;
 }
 
 Type check_value(Checker *self, AstValue *value) {
+    Type type = {0};
+    bool coercible = true;
+
     switch (value->kind) {
     case ValueString:
-        return type_make_pointer(&i8_type);
+        type = type_make_pointer(&i8_type);
+        coercible = false;
     case ValueChar:
-        return i32_type;
+        type = i32_type;
     case ValueNumber:
         // TODO: It would be nice to store the sign on the value
 
@@ -408,13 +424,18 @@ Type check_value(Checker *self, AstValue *value) {
         // to larger types if necessary.
         i64 number = value->as.number;
         if (number >= -128 && number <= 127) {
-            return i8_type;
+            type = i8_type;
         } else if (number >= -2'147'438'648 && number <= 2'147'438'647) {
-            return i32_type;
+            type = i32_type;
         } else {
-            return i64_type;
+            type = i64_type;
         }
     }
+
+    value->node.type = type;
+    value->node.coercible = coercible;
+
+    return type;
 }
 
 Type check_call(Checker *self, AstCall *call) {
@@ -424,6 +445,8 @@ Type check_call(Checker *self, AstCall *call) {
         longjmp(statement_jmp_buf, -1);
     }
 
+    call->node.type = symbol->type;
+    call->node.coercible = false;
 
     Types argument_types = symbol->as.function.argument_types;
     if (call->args.len != argument_types.len) {

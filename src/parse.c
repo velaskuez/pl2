@@ -34,9 +34,14 @@ static int prefix_prec[] = {
 static AstExpr make_binary_op(AstExpr lhs, BinaryOp op, AstExpr rhs) {
     AstExpr expr = {0};
     expr.kind = ExprBinaryOp;
+
+    // We want the rightmost location from the binary op, so copy from rhs
+    expr.as.binary_op.node = *ast_expr_node(&rhs);
+
     expr.as.binary_op.left = box(lhs);
     expr.as.binary_op.op = op;
     expr.as.binary_op.right = box(rhs);
+
     return expr;
 }
 
@@ -156,7 +161,10 @@ int eof(Parser *self) {
 }
 
 AstValue parse_value(Parser *self) {
+    AstNode node = make_ast_node(self);
+
     AstValue value = {0};
+    value.node = node;
 
     if (at(self, TokenString)) {
         value.kind = ValueString;
@@ -176,9 +184,10 @@ AstValue parse_value(Parser *self) {
 }
 
 AstCall parse_call(Parser *self) {
+    AstNode node = make_ast_node(self);
+
     AstCall call = {0};
-
-
+    call.node = node;
     call.name = expect(self, TokenIdent).value;
 
     expect(self, TokenLParen);
@@ -217,7 +226,10 @@ AstCompoundIdent parse_compound_ident(Parser *self) {
 
 
 AstUnaryOp parse_unary_op(Parser *self) {
+    AstNode node = make_ast_node(self);
+
     AstUnaryOp unary_op = {0};
+    unary_op.node = node;
 
     if (eat(self, KeywordSizeof)) {
         unary_op.op = UnaryOpSizeOf;

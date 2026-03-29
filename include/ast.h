@@ -85,12 +85,16 @@ typedef enum {
 } ExprKind;
 
 typedef struct {
+    AstNode node;
+
     AstExpr *left;
     BinaryOp op;
     AstExpr *right;
 } AstBinaryOp;
 
 typedef struct {
+    AstNode node;
+
     UnaryOp op;
     AstExpr *expr;
 } AstUnaryOp;
@@ -102,6 +106,8 @@ typedef enum {
 } ValueKind;
 
 typedef struct {
+    AstNode node;
+
     ValueKind kind;
     union {
         String string;
@@ -116,6 +122,8 @@ typedef struct {
 } AstExprs;
 
 typedef struct {
+    AstNode node;
+
     String name;
     AstExprs args;
 } AstCall;

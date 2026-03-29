@@ -14,17 +14,17 @@ AstNode *ast_location_node(AstLocation *location) {
 AstNode *ast_expr_node(AstExpr *expr) {
     switch (expr->kind) {
     case ExprBinaryOp:
-        break;
+        return &expr->as.binary_op.node;
     case ExprUnaryOp:
-        break;
+        return &expr->as.unary_op.node;
     case ExprValue:
-        break;
+        return &expr->as.value.node;
     case ExprIdent:
-        break;
+        return &expr->as.ident.node;
     case ExprCompoundIdent:
-        break;
+        return &expr->as.compound_ident.node;
     case ExprCall:
-        break;
+        return &expr->as.call.node;
     }
 
     return nullptr;
