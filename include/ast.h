@@ -152,7 +152,7 @@ struct AstExpr {
         AstUnaryOp unary_op;
         AstValue value;
         AstIdent ident;
-        AstCompoundIdent compound_ident;
+        AstCompoundIdent compound_ident; // TODO: move to binary op
         AstCall call;
     } as;
 };
@@ -178,6 +178,9 @@ typedef struct {
     AstExpr expr;
 } AstIndex;
 
+// TODO: use binary_op-like expression with `.` and `[]` as the only operators
+// `[]` has greater precedence than `.`
+// So variants will be AstIdent and AstAccess
 typedef struct {
     LocationKind kind;
     union {

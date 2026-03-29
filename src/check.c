@@ -141,6 +141,7 @@ void check_function(Checker *self, AstFunction *function) {
 
     free_scoped_symbols(self);
 
+    // TODO: Need to check branches too
     if (!self->current_function_returns) {
         report_error(self->report, "%.*s does not return", STRING_FMT_ARGS(&function->name));
         return;
