@@ -158,6 +158,8 @@ struct AstExpr {
 };
 
 typedef struct {
+    AstNode node;
+
     String name;
     AstType *type;
     AstExpr *expr;

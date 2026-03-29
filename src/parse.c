@@ -364,7 +364,10 @@ AstParams parse_params(Parser *self) {
 }
 
 AstLet parse_let(Parser *self) {
+    AstNode node = make_ast_node(self);
+
     AstLet let = {0};
+    let.node = node;
 
     expect(self, KeywordLet);
 

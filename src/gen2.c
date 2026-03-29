@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "gen.h"
 #include "array.h"
 #include "str.h"
 #include "type2.h"
@@ -13,30 +14,14 @@
 #include "report.h"
 #include "util.h"
 
-typedef struct {
-    String name;
-    i32 local;
-} Variable;
-
-Variable make_variable(String name, i32 local) {
+static Variable make_variable(String name, i32 local) {
     return (Variable) { .name = name, .local = local };
 }
 
-typedef struct {
-    size_t cap, len;
-    Variable *items;
-} Variables;
-
-typedef struct VariableChain VariableChain;
-struct VariableChain {
-    Variables *head;
-    VariableChain *next;
-};
-
-i32 find_variable(VariableChain *self, const String *name) {
+static i32 find_variable(VariableChain *self, const String *name) {
     if (self == nullptr) return -1;
 
-    foreach(variable, self->head) {
+    foreach(variable, &self->head) {
         if (string_cmp(&variable->name, name) == 0) {
             return variable->local;
         }
@@ -45,15 +30,15 @@ i32 find_variable(VariableChain *self, const String *name) {
     return find_variable(self->next, name);
 }
 
-VariableChain* init_scoped_variables(VariableChain *self) {
+static VariableChain* init_scoped_variables(VariableChain *self) {
     VariableChain *head = calloc(1, sizeof(VariableChain));
     head->next = self;
     return head;
 }
 
-VariableChain* free_scoped_variables(VariableChain *self) {
+static VariableChain* free_scoped_variables(VariableChain *self) {
     VariableChain *head = self->next;
-    free(self->head);
+    free(self->head.items);
     return head;
 }
 
@@ -68,24 +53,6 @@ static int printf_with_newline(const char* fmt, ...) {
 
     return n;
 }
-
-
-typedef struct {
-    VariableChain *variables;
-
-    int local; // For allocating temporary variables
-    int string; // For assigning labels to static strings
-    int label; // For allocating labels for control flow
-
-    char *ret_ext;
-
-    int (*write_fn)(const char *, ...) __attribute__((format(printf, 1, 2)));
-
-    Report *report;
-} Generator;
-
-void gen_init(Generator *self, Report *report);
-void gen_file(Generator *self, const AstFile *file);
 
 static void gen_function(Generator *self, const AstFunction *function);
 static void gen_block(Generator *self, const AstBlock *block);
@@ -141,7 +108,7 @@ void gen_function(Generator *self, const AstFunction *function) {
     int local = self->local;
     self->ret_ext = ret_ext(self, &function->node);
 
-    self->write_fn("%.*s:\n", STRING_FMT_ARGS(&function->name));
+    self->write_fn("\n%.*s:", STRING_FMT_ARGS(&function->name));
 
     self->variables = init_scoped_variables(self->variables);
 
@@ -150,7 +117,7 @@ void gen_function(Generator *self, const AstFunction *function) {
 
         // TODO: check.c will guarantee there are no invalid redefinitions
         // but we should still assert that here
-        append(self->variables->head, make_variable(param->name, local));
+        append(&self->variables->head, make_variable(param->name, local));
     }
 
     gen_block(self, &function->block);
@@ -188,8 +155,10 @@ void gen_statement(Generator *self, const AstStatement *statement) {
         gen_return(self, statement->as.return_);
         break;
     case StatementIf:
+        gen_if(self, &statement->as.if_);
         break;
     case StatementWhile:
+        gen_while(self, &statement->as.while_);
         break;
     }
 }
@@ -241,17 +210,15 @@ void gen_assign(Generator *self, const AstAssign *assign) {
 }
 
 void gen_let(Generator *self, const AstLet *let) {
-    AstNode *expr_node = ast_expr_node(let->expr);
-
-    i32 local = next_local(self, expr_node);
+    i32 local = next_local(self, &let->node);
 
     // TODO: check.c will guarantee there are no invalid redefinitions
     // but we should still assert that here
-    append(self->variables->head, make_variable(let->name, local));
+    append(&self->variables->head, make_variable(let->name, local));
 
     if (let->expr != nullptr) {
         gen_expr(self, let->expr);
-        self->write_fn("store%s %d", op_ext(self, expr_node), local);
+        self->write_fn("store%s %d", op_ext(self, &let->node), local);
     }
 }
 
@@ -278,6 +245,7 @@ void gen_expr(Generator *self, const AstExpr *expr) {
         gen_binary_op(self, &expr->as.binary_op);
 		break;
     case ExprUnaryOp:
+        TODO("ExprUnaryOp");
 		break;
     case ExprValue:
         gen_value(self, &expr->as.value);
@@ -286,8 +254,10 @@ void gen_expr(Generator *self, const AstExpr *expr) {
         gen_ident(self, &expr->as.ident);
 		break;
     case ExprCompoundIdent:
+        gen_compound_ident(self, &expr->as.compound_ident);
 		break;
     case ExprCall:
+        gen_call(self, &expr->as.call);
 		break;
     }
 }
@@ -432,12 +402,12 @@ i32 next_local(Generator *self, const AstNode *node) {
         case PrimitiveI8:
         case PrimitiveI32:
             self->local += 1;
-            self->local += 1;
             break;
         case PrimitiveI64:
             self->local += 2;
             break;
         }
+        break;
     case PointerType:
     case ArrayType:
         self->local += 2;
@@ -466,6 +436,7 @@ char *op_ext(Generator *self, const AstNode *node) {
         case PrimitiveI64:
             return ".d";
         }
+        break;
     case PointerType:
     case ArrayType:
         return ".d";

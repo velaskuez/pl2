@@ -5,10 +5,11 @@
 
 #include "ast.h"
 #include "parse.h"
-// #include "gen.h"
+#include "gen.h"
 #include "token.h"
 #include "util.h"
 #include "str.h"
+#include "check.h"
 
 int main() {
     int fd = open("test.pl2", O_RDONLY);
@@ -33,8 +34,16 @@ int main() {
 
     // ast_fmt_file(&printf_writer, &file);
 
-    // Generator gen = {0};
-    // gen_init(&gen);
+    Report report = {0};
 
-    // gen_file(&gen, &file);
+    Checker checker = {0};
+    check_init(&checker, &report);
+    check_file(&checker, &file);
+
+    if (report.errors > 0) return 1;
+
+    Generator gen = {0};
+    gen_init(&gen, &report);
+
+    gen_file(&gen, &file);
 }

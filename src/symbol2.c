@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 #include "type2.h"
 #include "symbol2.h"
 #include "array.h"
@@ -21,7 +23,7 @@ Symbol *symbol_find(const SymbolChain *self, const String *key) {
 }
 
 Symbol *symbol_find_with_kind(const SymbolChain *self, const String *key, SymbolKind kind) {
-    Symbol *symbol =  symbol_find(self->next, key);
+    Symbol *symbol = symbol_find(self, key);
     if (symbol == nullptr || symbol->kind != kind) return nullptr;
     return symbol;
 }

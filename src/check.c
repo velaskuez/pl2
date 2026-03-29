@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <setjmp.h>
 
+#include "check.h"
 #include "str.h"
 #include "type2.h"
 #include "ast.h"
@@ -9,16 +10,6 @@
 #include "array.h"
 #include "report.h"
 #include "symbol2.h"
-
-typedef struct {
-    SymbolChain *symbols;
-    Report *report;
-    Type current_function_return_type;
-    bool current_function_returns;
-} Checker;
-
-void check_init(Checker *self);
-void check_file(Checker *self, const AstFile *file);
 
 static void check_struct(Checker *self, const AstStruct *struct_);
 static void check_function(Checker *self, AstFunction *function);
@@ -48,7 +39,11 @@ static void report_type_mismatch_error1(Report *self, const Type *want, const Ty
 // to avoid having to handle the error at each layer of the AST
 jmp_buf struct_jmp_buf, function_jmp_buf, statement_jmp_buf;
 
-void check_init(Checker *self) {
+void check_init(Checker *self, Report *report) {
+    self->report = report;
+
+    init_scoped_symbols(self);
+
     append(&self->symbols->head, symbol_make_type(string_from_cstr("void"), void_type));
     append(&self->symbols->head, symbol_make_type(string_from_cstr("i8"), i8_type));
     append(&self->symbols->head, symbol_make_type(string_from_cstr("i32"), i32_type));
@@ -76,12 +71,10 @@ void check_struct(Checker *self, const AstStruct *struct_) {
     Types field_types = {0};
 
     foreach(field, &struct_->fields) {
-        Symbol *symbol = symbol_find(self->symbols, &field->name);
+        Symbol *symbol = symbol_find_with_kind(self->symbols, &field->type.name, TypeSymbol);
         if (symbol == nullptr) {
-            TODO("symbol == nullptr");
-        }
-        if (symbol->kind != TypeSymbol) {
-            TODO("symbol->kind != TypeSymbol");
+            report_error(self->report, "unknown type %.*s", STRING_FMT_ARGS(&field->type.name));
+            longjmp(struct_jmp_buf, -1);
         }
 
         append(&field_names, symbol->name);
@@ -104,6 +97,8 @@ void check_function(Checker *self, AstFunction *function) {
 
         return_type = symbol->type;
     }
+
+    function->node.type = return_type;
 
     // TODO: this will be a very simple check for now, but will want to make it
     // a bit more sophisticated at some point
@@ -146,8 +141,8 @@ void check_function(Checker *self, AstFunction *function) {
 
     free_scoped_symbols(self);
 
-    if (!type_equal(&return_type, &void_type) && !self->current_function_returns) {
-        report_error(self->report, "%.*s return type is not void - must return a value", STRING_FMT_ARGS(&function->name));
+    if (!self->current_function_returns) {
+        report_error(self->report, "%.*s does not return", STRING_FMT_ARGS(&function->name));
         return;
     }
 }
@@ -279,22 +274,38 @@ void check_let(Checker *self, AstLet *let) {
         longjmp(statement_jmp_buf, -1);
     }
 
-    // TODO
-    if (let->expr == nullptr) {
+    if (let->type == nullptr && let->expr == nullptr) {
+        report_error(self->report, "cannot declare %.*s without type or expression", STRING_FMT_ARGS(&let->name));
+        longjmp(statement_jmp_buf, -1);
     }
 
-    check_expr(self, let->expr);
-    AstNode *expr_node = ast_expr_node(let->expr);
+    AstNode *expr_node = nullptr;
+    if (let->expr != nullptr) {
+        check_expr(self, let->expr);
+        expr_node = ast_expr_node(let->expr);
+    }
 
-    if (let->type != nullptr) {
-        Symbol *symbol = symbol_find_with_kind(self->symbols, &let->type->name, TypeSymbol);
-        if (symbol != nullptr) {
-            report_error(self->report, "unknown type %.*s", STRING_FMT_ARGS(&let->type->name));
-            longjmp(statement_jmp_buf, -1);
-        }
+    if (let->type == nullptr) {
+        let->node.type = expr_node->type;
+        append(&self->symbols->head, symbol_make_variable(let->name, let->node.type));
+        return;
+    }
 
-        Type let_type = let->type->pointer ? type_make_pointer(&symbol->type) : symbol->type;
+    // At this point, let->type is not null, expr might be null
+    symbol = symbol_find_with_kind(self->symbols, &let->type->name, TypeSymbol);
+    if (symbol == nullptr) {
+        report_error(self->report, "unknown type %.*s", STRING_FMT_ARGS(&let->type->name));
+        longjmp(statement_jmp_buf, -1);
+    }
 
+    if (symbol->type.kind == PrimitiveType && symbol->type.as.primitive.kind == PrimitiveVoid) {
+        report_error(self->report, "cannot declare %.*s with type void", STRING_FMT_ARGS(&let->type->name));
+        longjmp(statement_jmp_buf, -1);
+    }
+
+    Type let_type = let->type->pointer ? type_make_pointer(&symbol->type) : symbol->type;
+
+    if (expr_node != nullptr) {
         if (!(expr_node->coercible && type_coerce(&expr_node->type, &let_type)) && !type_equal(&expr_node->type, &let_type)) {
             report_type_mismatch_error1(self->report, &let_type, &expr_node->type);
             longjmp(statement_jmp_buf, -1);
@@ -304,7 +315,8 @@ void check_let(Checker *self, AstLet *let) {
         expr_node->coercible = false;
     }
 
-    append(&self->symbols->head, symbol_make_variable(let->name, expr_node->type));
+    let->node.type = let_type;
+    append(&self->symbols->head, symbol_make_variable(let->name, let_type));
 }
 
 void check_binary_op(Checker *self, AstBinaryOp *binary_op) {
@@ -401,8 +413,10 @@ void check_unary_op(Checker *self, AstUnaryOp *unary_op) {
     switch (unary_op->op) {
     case UnaryOpSizeOf:
         type = i64_type;
+        break;
     case UnaryOpNew:
         type = type_make_pointer(&symbol->type);
+        break;
     }
 
     unary_op->node.type = type;
@@ -417,8 +431,10 @@ void check_value(Checker *self, AstValue *value) {
     case ValueString:
         type = type_make_pointer(&i8_type);
         coercible = false;
+        break;
     case ValueChar:
         type = i32_type;
+        break;
     case ValueNumber:
         // TODO: It would be nice to store the sign on the value
 
@@ -432,6 +448,8 @@ void check_value(Checker *self, AstValue *value) {
         } else {
             type = i64_type;
         }
+
+        break;
     }
 
     value->node.type = type;
