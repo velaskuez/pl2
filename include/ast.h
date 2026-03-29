@@ -145,10 +145,7 @@ typedef struct {
     AstIdents idents;
 } AstCompoundIdent;
 
-// TODO: expr doesn't need AstNode, its variants *should* have it
 struct AstExpr {
-    AstNode node;
-
     ExprKind kind;
     union {
         AstBinaryOp binary_op;

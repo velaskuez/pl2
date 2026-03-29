@@ -25,16 +25,16 @@ static void check_function(Checker *self, AstFunction *function);
 static void check_block(Checker *self, const AstBlock *block);
 static void check_statements(Checker *self, const AstStatements *statements);
 static void check_statement(Checker *self, AstStatement *statement);
-static Type check_ident(Checker *self, AstIdent *ident);
-static Type check_compound_ident(Checker *self, AstCompoundIdent *compound_ident);
+static void check_ident(Checker *self, AstIdent *ident);
+static void check_compound_ident(Checker *self, AstCompoundIdent *compound_ident);
 static void check_index(Checker *self, AstIndex *index);
 static void check_location(Checker *self, AstLocation *location);
 static void check_assign(Checker *self, AstAssign *assign);
 static void check_let(Checker *self, AstLet *let);
-static Type check_binary_op(Checker *self, AstBinaryOp *binary_op);
-static Type check_unary_op(Checker *self, AstUnaryOp *unary_op);
-static Type check_value(Checker *self, AstValue *value);
-static Type check_call(Checker *self, AstCall *call);
+static void check_binary_op(Checker *self, AstBinaryOp *binary_op);
+static void check_unary_op(Checker *self, AstUnaryOp *unary_op);
+static void check_value(Checker *self, AstValue *value);
+static void check_call(Checker *self, AstCall *call);
 static void check_expr(Checker *self, AstExpr *expr);
 static void check_return(Checker *self, AstExpr *expr);
 static void check_if(Checker *self, AstIf *if_);
@@ -189,7 +189,7 @@ void check_statement(Checker *self, AstStatement *statement) {
     }
 }
 
-Type check_ident(Checker *self, AstIdent *ident) {
+void check_ident(Checker *self, AstIdent *ident) {
     Symbol *symbol = symbol_find_with_kind(self->symbols, &ident->name, VariableSymbol);
     if (symbol == nullptr) {
         report_error(self->report, "unknown identifier %.*s", STRING_FMT_ARGS(&ident->name));
@@ -198,11 +198,9 @@ Type check_ident(Checker *self, AstIdent *ident) {
 
     ident->node.type = symbol->type;
     ident->node.coercible = false;
-
-    return symbol->type;
 }
 
-Type check_compound_ident(Checker *self, AstCompoundIdent *compound_ident) {
+void check_compound_ident(Checker *self, AstCompoundIdent *compound_ident) {
     assert(compound_ident->idents.len > 1);
 
     // TODO: annotate each ident with a type
@@ -217,8 +215,6 @@ Type check_compound_ident(Checker *self, AstCompoundIdent *compound_ident) {
     }
 
     compound_ident->node.type = base_type;
-
-    return base_type;
 }
 
 void check_index(Checker *self, AstIndex *index) {
@@ -237,7 +233,8 @@ void check_index(Checker *self, AstIndex *index) {
     index->node.coercible = false;
 
     check_expr(self, &index->expr);
-    if (!type_equal(&index->expr.node.type, &i64_type)) {
+    AstNode *expr_node = ast_expr_node(&index->expr);
+    if (!type_equal(&expr_node->type, &i64_type)) {
         report_error(self->report, "%.*s cannot be indexed by non-i64 type", STRING_FMT_ARGS(&index->ident.name));
         longjmp(statement_jmp_buf, -1);
     }
@@ -261,17 +258,18 @@ void check_assign(Checker *self, AstAssign *assign) {
     check_location(self, &assign->location);
 
     check_expr(self, &assign->expr);
+    AstNode *expr_node = ast_expr_node(&assign->expr);
 
     AstNode *location_node = ast_location_node(&assign->location);
     assert(location_node != nullptr);
 
-    if (!(assign->expr.node.coercible && type_coerce(&assign->expr.node.type, &location_node->type)) && !type_equal(&location_node->type, &assign->expr.node.type)) {
-        report_type_mismatch_error1(self->report, &location_node->type, &assign->expr.node.type);
+    if (!(expr_node->coercible && type_coerce(&expr_node->type, &location_node->type)) && !type_equal(&location_node->type, &expr_node->type)) {
+        report_type_mismatch_error1(self->report, &location_node->type, &expr_node->type);
         longjmp(statement_jmp_buf, -1);
     }
 
-    assign->expr.node.type = location_node->type;
-    assign->expr.node.coercible = false;
+    expr_node->type = location_node->type;
+    expr_node->coercible = false;
 }
 
 void check_let(Checker *self, AstLet *let) {
@@ -281,7 +279,12 @@ void check_let(Checker *self, AstLet *let) {
         longjmp(statement_jmp_buf, -1);
     }
 
+    // TODO
+    if (let->expr == nullptr) {
+    }
+
     check_expr(self, let->expr);
+    AstNode *expr_node = ast_expr_node(let->expr);
 
     if (let->type != nullptr) {
         Symbol *symbol = symbol_find_with_kind(self->symbols, &let->type->name, TypeSymbol);
@@ -290,35 +293,38 @@ void check_let(Checker *self, AstLet *let) {
             longjmp(statement_jmp_buf, -1);
         }
 
-        Type type = let->type->pointer ? type_make_pointer(&symbol->type) : symbol->type;
+        Type let_type = let->type->pointer ? type_make_pointer(&symbol->type) : symbol->type;
 
-        if (!(let->expr->node.coercible && type_coerce(&let->expr->node.type, &type)) && !type_equal(&let->expr->node.type, &type)) {
-            report_type_mismatch_error1(self->report, &type, &let->expr->node.type);
+        if (!(expr_node->coercible && type_coerce(&expr_node->type, &let_type)) && !type_equal(&expr_node->type, &let_type)) {
+            report_type_mismatch_error1(self->report, &let_type, &expr_node->type);
             longjmp(statement_jmp_buf, -1);
         }
 
-        let->expr->node.type = type;
-        let->expr->node.coercible = false;
+        expr_node->type = let_type;
+        expr_node->coercible = false;
     }
 
-    append(&self->symbols->head, symbol_make_variable(let->name, let->expr->node.type));
+    append(&self->symbols->head, symbol_make_variable(let->name, expr_node->type));
 }
 
-Type check_binary_op(Checker *self, AstBinaryOp *binary_op) {
+void check_binary_op(Checker *self, AstBinaryOp *binary_op) {
     check_expr(self, binary_op->left);
+    AstNode *lhs_node = ast_expr_node(binary_op->left);
+
     check_expr(self, binary_op->right);
+    AstNode *rhs_node = ast_expr_node(binary_op->right);
 
     // Index - LHS must be indexable, RHS must be i64
     if (binary_op->op == BinaryOpIndex) {
-        if (!(binary_op->right->node.coercible && type_coerce(&binary_op->right->node.type, &i64_type)) && !type_equal(&binary_op->right->node.type, &i64_type)) {
+        if (!(rhs_node->coercible && type_coerce(&rhs_node->type, &i64_type)) && !type_equal(&rhs_node->type, &i64_type)) {
             report_error(self->report, "<type> cannot be indexed by non-i64 type");
             longjmp(statement_jmp_buf, -1);
         }
 
-        binary_op->right->node.type = i64_type;
-        binary_op->right->node.coercible = false;
+        rhs_node->type = i64_type;
+        rhs_node->coercible = false;
 
-        Type *type = type_dereference(&binary_op->left->node.type);
+        Type *type = type_dereference(&lhs_node->type);
         if (type == nullptr) {
             report_error(self->report, "<type> cannot be indexed");
             longjmp(statement_jmp_buf, -1);
@@ -327,25 +333,25 @@ Type check_binary_op(Checker *self, AstBinaryOp *binary_op) {
         binary_op->node.type = *type;
         binary_op->node.coercible = false;
 
-        return *type;
+        return;
     }
 
     // For all other operations, operands must be comparable
-    if (!type_equal(&binary_op->left->node.type, &binary_op->right->node.type)) {
-        bool left_coercible = binary_op->left->node.coercible && type_coerce(&binary_op->left->node.type, &binary_op->right->node.type);
-        bool right_coercible = binary_op->right->node.coercible && type_coerce(&binary_op->right->node.type, &binary_op->left->node.type);
+    if (!type_equal(&lhs_node->type, &rhs_node->type)) {
+        bool left_coercible = lhs_node->coercible && type_coerce(&lhs_node->type, &rhs_node->type);
+        bool right_coercible = rhs_node->coercible && type_coerce(&rhs_node->type, &lhs_node->type);
 
         // If they can be coerced in both directions, then they should be equal?
         assert(!(left_coercible && right_coercible));
 
         if (!left_coercible && !right_coercible) {
-            report_type_mismatch_error1(self->report, &binary_op->left->node.type, &binary_op->right->node.type);
+            report_type_mismatch_error1(self->report, &lhs_node->type, &rhs_node->type);
         }
 
         if (left_coercible) {
-            binary_op->left->node.type = binary_op->right->node.type;
+            lhs_node->type = rhs_node->type;
         } else {
-            binary_op->right->node.type = binary_op->left->node.type;
+            rhs_node->type = lhs_node->type;
         }
     }
 
@@ -355,7 +361,7 @@ Type check_binary_op(Checker *self, AstBinaryOp *binary_op) {
     case BinaryOpSub:
     case BinaryOpMul:
     case BinaryOpDiv:
-        type = binary_op->left->node.type;
+        type = lhs_node->type;
         break;
     case BinaryOpAnd:
     case BinaryOpOr:
@@ -379,12 +385,10 @@ Type check_binary_op(Checker *self, AstBinaryOp *binary_op) {
     }
 
     binary_op->node.type = type;
-    binary_op->node.coercible = binary_op->left->node.coercible && binary_op->right->node.coercible;
-
-    return type;
+    binary_op->node.coercible = lhs_node->coercible && rhs_node->coercible;
 }
 
-Type check_unary_op(Checker *self, AstUnaryOp *unary_op) {
+void check_unary_op(Checker *self, AstUnaryOp *unary_op) {
     // TODO: sizeof can accept expressions too, new can accept type expressions once that's implemented
     assert(unary_op->expr->kind == ExprIdent);
     Symbol *symbol = symbol_find_with_kind(self->symbols, &unary_op->expr->as.ident.name, TypeSymbol);
@@ -403,11 +407,9 @@ Type check_unary_op(Checker *self, AstUnaryOp *unary_op) {
 
     unary_op->node.type = type;
     unary_op->node.coercible = false;
-
-    return type;
 }
 
-Type check_value(Checker *self, AstValue *value) {
+void check_value(Checker *self, AstValue *value) {
     Type type = {0};
     bool coercible = true;
 
@@ -434,11 +436,9 @@ Type check_value(Checker *self, AstValue *value) {
 
     value->node.type = type;
     value->node.coercible = coercible;
-
-    return type;
 }
 
-Type check_call(Checker *self, AstCall *call) {
+void check_call(Checker *self, AstCall *call) {
     Symbol *symbol = symbol_find_with_kind(self->symbols, &call->name, FunctionSymbol);
     if (symbol == nullptr) {
         report_error(self->report, "unknown function %.*s", STRING_FMT_ARGS(&call->name));
@@ -457,52 +457,43 @@ Type check_call(Checker *self, AstCall *call) {
     size_t i = 0;
     foreach(expr, &call->args) {
         check_expr(self, expr);
+        AstNode *expr_node = ast_expr_node(expr);
 
         Type type = argument_types.items[i];
 
-        if (!(expr->node.coercible && type_coerce(&expr->node.type, &type)) && !type_equal(&expr->node.type, &type)) {
-            report_type_mismatch_error1(self->report, &type, &expr->node.type);
+        if (!(expr_node->coercible && type_coerce(&expr_node->type, &type)) && !type_equal(&expr_node->type, &type)) {
+            report_type_mismatch_error1(self->report, &type, &expr_node->type);
             longjmp(statement_jmp_buf, -1);
         }
 
-        expr->node.type = type;
-        expr->node.coercible = false;
+        expr_node->type = type;
+        expr_node->coercible = false;
 
         i++;
     }
-
-    return symbol->type;
 }
 
 void check_expr(Checker *self, AstExpr *expr) {
-    Type type = {0};
-    bool coercible = false;
-
     switch (expr->kind) {
     case ExprBinaryOp:
-        type = check_binary_op(self, &expr->as.binary_op);
-        coercible = expr->as.binary_op.left->node.coercible && expr->as.binary_op.right->node.coercible;
+        check_binary_op(self, &expr->as.binary_op);
         break;
     case ExprUnaryOp:
-        type = check_unary_op(self, &expr->as.unary_op);
+        check_unary_op(self, &expr->as.unary_op);
         break;
     case ExprValue:
-        type = check_value(self, &expr->as.value);
-        coercible = type.kind == PrimitiveType;
+        check_value(self, &expr->as.value);
         break;
     case ExprIdent:
-        type = check_ident(self, &expr->as.ident);
+        check_ident(self, &expr->as.ident);
         break;
     case ExprCompoundIdent:
-        type = check_compound_ident(self, &expr->as.compound_ident);
+        check_compound_ident(self, &expr->as.compound_ident);
         break;
     case ExprCall:
-        type = check_call(self, &expr->as.call);
+        check_call(self, &expr->as.call);
         break;
     }
-
-    expr->node.type = type;
-    expr->node.coercible = coercible;
 }
 
 void check_return(Checker *self, AstExpr *expr) {
@@ -518,9 +509,10 @@ void check_return(Checker *self, AstExpr *expr) {
     }
 
     check_expr(self, expr);
+    AstNode *expr_node = ast_expr_node(expr);
 
-    if (!type_equal(&self->current_function_return_type, &expr->node.type)) {
-        report_type_mismatch_error1(self->report, &self->current_function_return_type, &expr->node.type);
+    if (!type_equal(&self->current_function_return_type, &expr_node->type)) {
+        report_type_mismatch_error1(self->report, &self->current_function_return_type, &expr_node->type);
         longjmp(statement_jmp_buf, -1);
     }
 }

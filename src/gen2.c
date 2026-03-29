@@ -106,7 +106,7 @@ static void gen_binary_op(Generator *self, const AstBinaryOp *binary_op);
 static void gen_comparison_op(Generator *self, const char *op_ext, const char *jmp_op_ext);
 // static void gen_unary_op_new(Generator *self, const AstExpr *expr);
 // static void gen_unary_op(Generator *self, const AstUnaryOp *unary_op);
-static void gen_value(Generator *self, const AstValue *value, const AstNode *node);
+static void gen_value(Generator *self, const AstValue *value);
 static void gen_ident(Generator *self, const AstIdent *ident);
 static void gen_compound_ident(Generator *self, const AstCompoundIdent *compound_ident);
 static void gen_call(Generator *self, const AstCall *call);
@@ -241,7 +241,9 @@ void gen_assign(Generator *self, const AstAssign *assign) {
 }
 
 void gen_let(Generator *self, const AstLet *let) {
-    i32 local = next_local(self, &let->expr->node);
+    AstNode *expr_node = ast_expr_node(let->expr);
+
+    i32 local = next_local(self, expr_node);
 
     // TODO: check.c will guarantee there are no invalid redefinitions
     // but we should still assert that here
@@ -249,7 +251,7 @@ void gen_let(Generator *self, const AstLet *let) {
 
     if (let->expr != nullptr) {
         gen_expr(self, let->expr);
-        self->write_fn("store%s %d", op_ext(self, &let->expr->node), local);
+        self->write_fn("store%s %d", op_ext(self, expr_node), local);
     }
 }
 
@@ -278,7 +280,7 @@ void gen_expr(Generator *self, const AstExpr *expr) {
     case ExprUnaryOp:
 		break;
     case ExprValue:
-        gen_value(self, &expr->as.value, &expr->node);
+        gen_value(self, &expr->as.value);
 		break;
     case ExprIdent:
         gen_ident(self, &expr->as.ident);
@@ -304,6 +306,8 @@ void gen_comparison_op(Generator *self, const char *ext, const char *jmp_ext) {
 }
 
 void gen_binary_op(Generator *self, const AstBinaryOp *binary_op) {
+    AstNode *lhs_node = ast_expr_node(binary_op->left);
+
     // TODO: The same code for a compound identifier location can be re-used for a
     // compound identifier expression, the only difference being the former will do
     // an aload and the latter will do an astore. Compound identifiers could have been
@@ -313,17 +317,18 @@ void gen_binary_op(Generator *self, const AstBinaryOp *binary_op) {
     if (binary_op->op == BinaryOpIndex) {
         gen_expr(self, binary_op->left);
 
+
         // This should have been checked earlier - the rhs must be I64
         gen_expr(self, binary_op->right);
-        self->write_fn("mul.d %d", binary_op->left->node.type.layout.size);
-        self->write_fn("aload%s", op_ext(self, &binary_op->left->node));
+        self->write_fn("mul.d %d", lhs_node->type.layout.size);
+        self->write_fn("aload%s", op_ext(self, lhs_node));
         return;
     }
 
     gen_expr(self, binary_op->left);
     gen_expr(self, binary_op->right);
 
-    const char *ext = op_ext(self, &binary_op->left->node);
+    const char *ext = op_ext(self, lhs_node);
 
     switch (binary_op->op) {
     case BinaryOpEq:
@@ -378,7 +383,7 @@ void gen_binary_op(Generator *self, const AstBinaryOp *binary_op) {
     }
 }
 
-void gen_value(Generator *self, const AstValue *value, const AstNode *node) {
+void gen_value(Generator *self, const AstValue *value) {
     switch (value->kind) {
     case ValueString:
         int label = self->string++;
@@ -386,10 +391,10 @@ void gen_value(Generator *self, const AstValue *value, const AstNode *node) {
         self->write_fn("dataptr s%d", label);
         break;
     case ValueChar:
-        self->write_fn("push%s %d", op_ext(self, node), value->as.char_);
+        self->write_fn("push%s %d", op_ext(self, &value->node), value->as.char_);
         break;
     case ValueNumber:
-        self->write_fn("push%s %ld", op_ext(self, node), value->as.number);
+        self->write_fn("push%s %ld", op_ext(self, &value->node), value->as.number);
     }
 }
 
