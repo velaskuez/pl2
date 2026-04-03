@@ -1,4 +1,5 @@
 #include "type2.h"
+#include "array.h"
 
 Type void_type = {
     .kind = PrimitiveType,
@@ -130,16 +131,22 @@ Type type_make_struct(String name, const Types *types, const Strings *names) {
     TypeStruct struct_ = {0};
     struct_.name = name;
 
-    {size_t i = 0;
-    for (const Type *field_type = types->items; field_type < types->items + types->len; field_type++, i++) {
+    size_t i = 0;
+    for (const Type *field_type = types->items;
+                     field_type < types->items + types->len;
+                     field_type++, i++) {
+
         u32 offset = layout.size;
         u32 size = type.layout.size;
         u32 padding = 0;
 
         TypeStructField field = {0};
+        field.name = names->items[i];
         field.offset = offset;
         field.type = calloc(1, sizeof(Type));
-        *field.type = type;
+        *field.type = types->items[i];
+
+        append(&struct_.fields, field);
 
         // If padding < 8, then we may have room to add in the next field
         padding = 8 - (offset % 8);
@@ -166,12 +173,20 @@ Type type_make_struct(String name, const Types *types, const Strings *names) {
         }
 
         layout.size += size;
-    }}
+    }
 
     type.layout = layout;
     type.as.struct_ = struct_;
 
     return type;
+}
+
+TypeStructField* struct_find_field(const TypeStruct *struct_, const String *name) {
+    foreach(field, &struct_->fields) {
+        if (string_cmp(&field->name, name) == 0) return field;
+    }
+
+    return nullptr;
 }
 
 char *type_fmt(const Type *self) {

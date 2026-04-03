@@ -88,4 +88,6 @@ Type type_make_pointer(Type *from);
 Type type_make_array(Type *from, u32 length);
 Type type_make_struct(String name, const Types *types, const Strings *names);
 
+TypeStructField* struct_find_field(const TypeStruct *struct_, const String *name);
+
 char *type_fmt(const Type *self);

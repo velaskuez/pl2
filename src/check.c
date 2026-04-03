@@ -77,8 +77,11 @@ void check_struct(Checker *self, const AstStruct *struct_) {
             longjmp(struct_jmp_buf, -1);
         }
 
-        append(&field_names, symbol->name);
-        append(&field_types, symbol->type);
+        append(&field_names, field->name);
+
+        Type type = field->type.pointer ? type_make_pointer(&symbol->type) : symbol->type;
+
+        append(&field_types, type);
     }
 
     // TODO: seems redundant to store struct name in Type
@@ -199,18 +202,38 @@ void check_ident(Checker *self, AstIdent *ident) {
 void check_compound_ident(Checker *self, AstCompoundIdent *compound_ident) {
     assert(compound_ident->idents.len > 1);
 
-    // TODO: annotate each ident with a type
-
     AstIdent *base = &compound_ident->idents.items[0];
     check_ident(self, base);
 
     Type base_type = base->node.type;
-    if (base_type.kind != StructType) {
-        report_error(self->report, "cannot access fields of %.*s - not a struct", STRING_FMT_ARGS(&base->name));
-        longjmp(statement_jmp_buf, -1);
+
+    for (AstIdent *ident = compound_ident->idents.items+1;
+                   ident < compound_ident->idents.items + compound_ident->idents.len;
+                   ident++) {
+
+        if (base_type.kind == PointerType) {
+            Type *dereferenced_type = type_dereference(&base_type);
+            assert(dereferenced_type != nullptr);
+            base_type = *dereferenced_type;
+        }
+
+        if (base_type.kind != StructType) {
+            report_error(self->report, "cannot access fields of %.*s - not a struct", STRING_FMT_ARGS(&base->name));
+            longjmp(statement_jmp_buf, -1);
+        }
+
+        TypeStructField* field = struct_find_field(&base_type.as.struct_, &ident->name);
+        if (field == nullptr) {
+            report_error(self->report, "%.*s is not a field of %.*s", STRING_FMT_ARGS(&ident->name), STRING_FMT_ARGS(&base->name));
+            longjmp(statement_jmp_buf, -1);
+        }
+
+        ident->node.type = *field->type;
+        base_type = *field->type;
+        base = ident;
     }
 
-    compound_ident->node.type = base_type;
+    compound_ident->node.type = last(&compound_ident->idents).node.type;
 }
 
 void check_index(Checker *self, AstIndex *index) {

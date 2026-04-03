@@ -24,3 +24,6 @@
 
 #define upto(len) \
     for (auto i = 0; i < len; i++)
+
+#define last(array) \
+    (array)->items[(array)->len-1]
