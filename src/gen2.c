@@ -71,8 +71,8 @@ static void gen_while(Generator *self, const AstWhile *while_);
 static void gen_expr(Generator *self, const AstExpr *expr);
 static void gen_binary_op(Generator *self, const AstBinaryOp *binary_op);
 static void gen_comparison_op(Generator *self, const char *op_ext, const char *jmp_op_ext);
-// static void gen_unary_op_new(Generator *self, const AstExpr *expr);
-// static void gen_unary_op(Generator *self, const AstUnaryOp *unary_op);
+static void gen_unary_op_new(Generator *self, const AstNode *node);
+static void gen_unary_op(Generator *self, const AstUnaryOp *unary_op);
 static void gen_value(Generator *self, const AstValue *value);
 static void gen_ident(Generator *self, const AstIdent *ident);
 static void gen_compound_ident(Generator *self, const AstCompoundIdent *compound_ident);
@@ -245,7 +245,7 @@ void gen_expr(Generator *self, const AstExpr *expr) {
         gen_binary_op(self, &expr->as.binary_op);
 		break;
     case ExprUnaryOp:
-        TODO("ExprUnaryOp");
+        gen_unary_op(self, &expr->as.unary_op);
 		break;
     case ExprValue:
         gen_value(self, &expr->as.value);
@@ -350,6 +350,29 @@ void gen_binary_op(Generator *self, const AstBinaryOp *binary_op) {
     case BinaryOpIndex:
         panic("unreachable");
 		break;
+    }
+}
+
+void gen_unary_op_new(Generator *self, const AstNode *node) {
+    assert(node->type.kind == PointerType);
+    Type *type = type_dereference(&node->type);
+    assert(type != nullptr);
+
+    self->write_fn("push.d %d", type->layout.size);
+    self->write_fn("alloc");
+}
+
+void gen_unary_op(Generator *self, const AstUnaryOp *unary_op) {
+    switch (unary_op->op) {
+    case UnaryOpSizeOf:
+        // gen_unary_op_sizeof(self, unary_op->expr);
+        break;
+    case UnaryOpNew:
+        // TODO: sizeof can accept expressions too, new can accept type expressions once that's implemented
+        assert(unary_op->expr->kind == ExprIdent);
+
+        gen_unary_op_new(self, &unary_op->node);
+        break;
     }
 }
 

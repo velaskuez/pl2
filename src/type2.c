@@ -125,31 +125,26 @@ Type type_make_struct(String name, const Types *types, const Strings *names) {
     Type type = {0};
     type.kind = StructType;
 
-    TypeLayout layout = {0};
-    layout.alignment = 8;
-
     TypeStruct struct_ = {0};
     struct_.name = name;
 
-    size_t i = 0;
+    u32 offset = 0;
+    u64 i = 0;
     for (const Type *field_type = types->items;
                      field_type < types->items + types->len;
                      field_type++, i++) {
-
-        u32 offset = layout.size;
-        u32 size = type.layout.size;
-        u32 padding = 0;
 
         TypeStructField field = {0};
         field.name = names->items[i];
         field.offset = offset;
         field.type = calloc(1, sizeof(Type));
-        *field.type = types->items[i];
-
+        *field.type = *field_type;
         append(&struct_.fields, field);
 
+        offset += field_type->layout.size;
+
         // If padding < 8, then we may have room to add in the next field
-        padding = 8 - (offset % 8);
+        u32 padding = 8 - (offset % 8);
         if (padding == 0 || padding == 8) {
             continue;
         }
@@ -157,7 +152,7 @@ Type type_make_struct(String name, const Types *types, const Strings *names) {
         if (i == types->len-1) {
             // Last element - add padding so the size of the struct
             // will be a mulitple of 8
-            layout.size += size;
+            offset += padding;
             break;
         }
 
@@ -165,15 +160,19 @@ Type type_make_struct(String name, const Types *types, const Strings *names) {
         //  - They both have the same alignment
         //  - The first field is placed so that the next field will
         //    be correctly aligned
-        size_t field_alignment = type.layout.alignment;
+        size_t field_alignment = field_type->layout.alignment;
         size_t next_field_alignment = types->items[i+1].layout.alignment;
         if (field_alignment == next_field_alignment ||
-                (field_alignment % offset == 0 && next_field_alignment < field_alignment)) {
+                (offset % next_field_alignment == 0)) {
             continue;
         }
 
-        layout.size += size;
+        offset += padding;
     }
+
+    TypeLayout layout = {0};
+    layout.alignment = 8;
+    layout.size = offset;
 
     type.layout = layout;
     type.as.struct_ = struct_;

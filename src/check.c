@@ -427,6 +427,7 @@ void check_binary_op(Checker *self, AstBinaryOp *binary_op) {
 void check_unary_op(Checker *self, AstUnaryOp *unary_op) {
     // TODO: sizeof can accept expressions too, new can accept type expressions once that's implemented
     assert(unary_op->expr->kind == ExprIdent);
+
     Symbol *symbol = symbol_find_with_kind(self->symbols, &unary_op->expr->as.ident.name, TypeSymbol);
     if (symbol == nullptr) {
         report_error(self->report, "unknown type %.*s", STRING_FMT_ARGS(&unary_op->expr->as.ident.name));

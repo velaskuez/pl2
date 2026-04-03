@@ -15,8 +15,19 @@ struct Link {
 
 struct List {
     s1 *S1;
-    v1 i32;
+    v1 *S1;
     link *Link;
+
+    // a i8;
+    // b i8;
+    // e i32;
+    // c i8;
+    // d i8;
+    // e i32;
+    // a i8;
+    // b i8;
+    // c i8;
+    // d i8;
 }
 
 fn test(a i32) i32 {
@@ -24,12 +35,12 @@ fn test(a i32) i32 {
 }
 
 fn main() void {
-    let a i32 = test(1 + 2) + 4;
+    // let a i32 = test(1 + 2) + 4;
 
-    let s = "Hello, World!";
+    // let s = "Hello, World!";
 
-    let c i32 = 3;
-    let b = 4 + a + c + 3;
+    // let c i32 = 3;
+    // let b = 4 + a + c + 3;
 
     // let d0 *List;
     // let d List = d0[0];
@@ -40,11 +51,11 @@ fn main() void {
 
     let d *List = new List;
 
-    let e i32 = 8;
-    d.v1 = 77;
-    d.s1.v1 = 77;
-    d.s1.s2.v1 = 77;
-    d.s1.s2.v2 = e;
+    // let e i32 = 8;
+    // d.v1 = 77;
+    // d.s1.v1 = 77;
+    // d.s1.s2.v1 = 77;
+    // d.s1.s2.v2 = e;
 
     // let f i8 = d0.s1.s2.v1 + 2;
 
