@@ -14,6 +14,8 @@ typedef enum {
     ArrayType  // castable -> pointer
 } TypeKind;
 
+char *type_kind_str[ArrayType+1];
+
 typedef struct {
     u32 size;
     u32 alignment;

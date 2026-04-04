@@ -1,6 +1,13 @@
 #include "type2.h"
 #include "array.h"
 
+char *type_kind_str[ArrayType+1] = {
+    [PrimitiveType] = "primitive",
+    [PointerType] = "pointer",
+    [StructType] = "struct",
+    [ArrayType] = "array"
+};
+
 Type void_type = {
     .kind = PrimitiveType,
     .layout.alignment = 0,

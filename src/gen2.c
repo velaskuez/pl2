@@ -185,6 +185,70 @@ void gen_location_ident(Generator *self, const AstIdent *ident) {
 }
 
 void gen_location_compound_ident(Generator *self, const AstCompoundIdent *compound_ident) {
+    Type resolved_type = compound_ident->node.type;
+    if (resolved_type.kind != PrimitiveType && resolved_type.kind != PointerType) {
+        report_error(self->report, "type of compound identifier must be either primitive or pointer, have %s",
+                type_kind_str[resolved_type.kind]);
+        longjmp(fail_buf, -1);
+    }
+
+
+    AstIdent base_ident = compound_ident->idents.items[0];
+    i32 local = find_variable(self->variables, &base_ident.name);
+    assert(local >= 0);
+
+    self->write_fn("load%s %d", op_ext(self, &base_ident.node), local);
+
+    assert(base_ident.node.type.kind == PointerType);
+    Type *base_type = type_dereference(&base_ident.node.type);
+
+    size_t i = 1;
+    for (AstIdent *ident = compound_ident->idents.items+i;
+                   ident < compound_ident->idents.items + compound_ident->idents.len;
+                   ident++, i++) {
+        assert(base_type != nullptr && base_type->kind == StructType);
+
+        TypeStructField *field = struct_find_field(&base_type->as.struct_, &ident->name);
+        assert(field != nullptr);
+        assert(field->type->kind == ident->node.type.kind);
+
+        if (field->type->kind == PointerType) {
+            self->write_fn("push.d %d", field->offset);
+
+            if (i == compound_ident->idents.len-1) {
+                // Last field - follow with astore
+                break;
+            }
+
+            // Since it's not the last field, it must point to a struct
+            // This will change once we support expressions like a[0].b
+            Type *type = type_dereference(field->type);
+            assert(type != nullptr && type->kind == StructType);
+
+            // aload with the pushed offset to get the base pointer of the field's allocation
+            self->write_fn("aload.d");
+
+            base_type = type;
+
+            continue;
+        } else if (field->type->kind == StructType) {
+            self->write_fn("push.d %d", field->offset);
+
+            base_type = field->type;
+
+            continue;
+        } else if (field->type->kind == PrimitiveType) {
+            assert(i == compound_ident->idents.len-1);
+
+            self->write_fn("push.d %d", field->offset);
+
+            break;
+        } else {
+            panic("unimplemented: gen compound identifier for %s fields", type_kind_str[field->type->kind]);
+        }
+    }
+
+    self->write_fn("astore%s", op_ext(self, &compound_ident->node));
 }
 
 void gen_location_index(Generator *self, const AstIndex *index) {
