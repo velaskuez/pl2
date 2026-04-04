@@ -192,7 +192,6 @@ void gen_location_compound_ident(Generator *self, const AstCompoundIdent *compou
         longjmp(fail_buf, -1);
     }
 
-
     AstIdent base_ident = compound_ident->idents.items[0];
     i32 local = find_variable(self->variables, &base_ident.name);
     assert(local >= 0);

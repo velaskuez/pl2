@@ -111,8 +111,8 @@ Type type_make_pointer(Type *from) {
     Type type = {0};
     type.kind = PointerType;
     type.layout = i64_type.layout;
-    // TODO: should really be copying the types here
-    type.as.pointer.type = from;
+    type.as.pointer.type = calloc(1, sizeof(Type));
+    *type.as.pointer.type = *from;
 
     return type;
 }
@@ -123,7 +123,8 @@ Type type_make_array(Type *from, u32 length) {
     type.layout.size = from->layout.size * length;
     type.layout.alignment = from->layout.alignment;
     type.as.array.length = length;
-    type.as.array.type = from;
+    type.as.array.type = calloc(1, sizeof(Type));
+    *type.as.array.type = *from;
 
     return type;
 }

@@ -36,16 +36,32 @@ void ast_fmt_struct(Writer *writer, const AstStruct *struct_, int indent) {
     writer_append_cstr(writer, "}\n");
 }
 
-void ast_fmt_type(Writer *writer, const AstType *type) {
-    if (type->pointer) writer_append_cstr(writer, "*");
-    writer_append_string(writer, &type->name);
+void ast_fmt_type_expr(Writer *writer, const AstTypeExpr *type) {
+    switch (type->kind) {
+    case IdentTypeExpr:
+        writer_append_string(writer, &type->as.ident.name);
+        break;
+    case PointerTypeExpr:
+        writer_append_cstr(writer, "*");
+        ast_fmt_type_expr(writer, type->as.pointer_to);
+        break;
+    case ArrayTypeExpr:
+        writer_append_cstr(writer, "[");
+        char *num = nullptr;
+        asprintf(&num, "%ld", type->as.array.length);
+        writer_append_cstr(writer, num);
+        free(num);
+        writer_append_cstr(writer, "]");
+        ast_fmt_type_expr(writer, type->as.array.of);
+        break;
+    }
 }
 
 void ast_fmt_param(Writer *writer, const AstParam *param, int indent) {
     writer_append_indent(writer, indent);
     writer_append_string(writer, &param->name);
     writer_append_cstr(writer, " ");
-    ast_fmt_type(writer, &param->type);
+    ast_fmt_type_expr(writer, param->type_expr);
 }
 
 void ast_fmt_function(Writer *writer, const AstFunction *function, int indent) {
@@ -64,7 +80,7 @@ void ast_fmt_function(Writer *writer, const AstFunction *function, int indent) {
 
     if (function->return_type != nullptr) {
         writer_append_cstr(writer, " ");
-        ast_fmt_type(writer, function->return_type);
+        ast_fmt_type_expr(writer, function->return_type);
     }
 
     writer_append_cstr(writer, " ");
@@ -155,12 +171,14 @@ void ast_fmt_let(Writer *writer, const AstLet *let, int indent) {
 
     writer_append_cstr(writer, "let ");
     writer_append_string(writer, &let->name);
-    if (let->type != nullptr) {
+    if (let->type_expr != nullptr) {
         writer_append_cstr(writer, " ");
-        ast_fmt_type(writer, let->type);
+        ast_fmt_type_expr(writer, let->type_expr);
     }
-    writer_append_cstr(writer, " = ");
-    ast_fmt_expr(writer, let->expr, 0);
+    if (let->expr != nullptr) {
+        writer_append_cstr(writer, " = ");
+        ast_fmt_expr(writer, let->expr, 0);
+    }
 }
 
 void ast_fmt_if(Writer *writer, const AstIf *if_, int indent) {

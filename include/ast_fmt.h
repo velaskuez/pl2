@@ -7,7 +7,7 @@ void ast_fmt_file(Writer *writer, const AstFile *file);
 
 void ast_fmt_struct(Writer *writer, const AstStruct *file, int indent);
 void ast_fmt_function(Writer *writer, const AstFunction *file, int indent);
-void ast_fmt_type(Writer *writer, const AstType *type);
+void ast_fmt_type_expr(Writer *writer, const AstTypeExpr *type);
 void ast_fmt_param(Writer *writer, const AstParam *param, int indent);
 
 void ast_fmt_block(Writer *writer, const AstBlock *block, int indent);

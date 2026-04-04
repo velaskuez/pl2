@@ -21,6 +21,10 @@ static int isalphanumeric(char c) {
     return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9');
 }
 
+static int isident(char c) {
+    return isalphanumeric(c) || c == '_';
+}
+
 static void create_token(Tokeniser *self, TokenKind kind, String value, Position position);
 static char next_char(Tokeniser *self);
 static char peek_char(Tokeniser *self);
@@ -145,7 +149,7 @@ int token_collect(Tokeniser *self) {
         case 'a'...'z':
             String word = {0};
             append(&word, c);
-            extend_while(self, &word, isalphanumeric);
+            extend_while(self, &word, isident);
 
             TokenKind kind = check_keyword(&word);
             if (!kind) kind = TokenIdent;

@@ -8,6 +8,18 @@ struct S1 {
     s2 *S2;
 }
 
+struct TypeExprs {
+    a i32;
+    b [10]i32;
+    c *i32;
+    d **i32;
+    e *[10]*i32;
+    f [10]*S1;
+}
+fn type_exprs(a i32, b [10]i32, c *i32, d **i32, e *[10]*i32, f [10]*S1) void {
+    return;
+}
+
 struct Link {
     prev *void;
     next *void;
@@ -35,7 +47,12 @@ fn test(a i32) i32 {
 }
 
 fn main() void {
-    //let a i32 = test(1 + 2) + 4;
+    // let a i32 = test(1 + 2) + 4;
+    // let b [10]i32;
+    // let c *i32;
+    // let d **i32;
+    // let e *[10]*i32;
+    // let f [10]*S1;
 
     // let s = "Hello, World!";
 
@@ -51,6 +68,8 @@ fn main() void {
 
     let d *List = new List;
     let s *S1 = new S1;
+
+    // let v = cast(*void) s;
 
     d.s1 = s;
     // d.s1.v1 = 77;

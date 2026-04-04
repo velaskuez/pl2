@@ -29,3 +29,14 @@ AstNode *ast_expr_node(AstExpr *expr) {
 
     return nullptr;
 }
+
+const String *ast_type_name(const AstTypeExpr *type_expr) {
+    switch (type_expr->kind) {
+    case IdentTypeExpr:
+        return &type_expr->as.ident.name;
+    case PointerTypeExpr:
+        return ast_type_name(type_expr->as.pointer_to);
+    case ArrayTypeExpr:
+        return ast_type_name(type_expr->as.array.of);
+    }
+}

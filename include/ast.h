@@ -15,6 +15,23 @@ typedef struct {
 } AstNode;
 
 typedef struct {
+    AstNode node;
+
+    String name;
+} AstIdent;
+
+typedef struct {
+    size_t len, cap;
+    AstIdent *items;
+} AstIdents;
+
+typedef struct {
+    AstNode node;
+
+    AstIdents idents;
+} AstCompoundIdent;
+
+typedef struct {
     size_t len, cap;
     AstStatement *items;
 } AstStatements;
@@ -23,16 +40,35 @@ typedef struct {
     AstStatements statements;
 } AstBlock;
 
+typedef struct AstTypeExpr AstTypeExpr;
+
+typedef enum {
+    IdentTypeExpr,
+    PointerTypeExpr,
+    ArrayTypeExpr
+} TypeExprKind;
+
 typedef struct {
-    String name;
-    int pointer;
-} AstType;
+    i64 length;
+    AstTypeExpr *of;
+} TypeExprArray;
+
+struct AstTypeExpr {
+    AstNode node;
+
+    TypeExprKind kind;
+    union {
+        AstIdent ident;
+        AstTypeExpr *pointer_to;
+        TypeExprArray array;
+    } as;
+};
 
 typedef struct {
     AstNode node;
 
     String name;
-    AstType type;
+    AstTypeExpr *type_expr;
 } AstParam;
 
 typedef struct {
@@ -128,23 +164,6 @@ typedef struct {
     AstExprs args;
 } AstCall;
 
-typedef struct {
-    AstNode node;
-
-    String name;
-} AstIdent;
-
-typedef struct {
-    size_t len, cap;
-    AstIdent *items;
-} AstIdents;
-
-typedef struct {
-    AstNode node;
-
-    AstIdents idents;
-} AstCompoundIdent;
-
 struct AstExpr {
     ExprKind kind;
     union {
@@ -161,7 +180,7 @@ typedef struct {
     AstNode node;
 
     String name;
-    AstType *type;
+    AstTypeExpr *type_expr;
     AstExpr *expr;
 } AstLet;
 
@@ -233,7 +252,7 @@ typedef struct {
 
     String name;
     AstParams params;
-    AstType *return_type;
+    AstTypeExpr *return_type;
     AstBlock block;
 } AstFunction;
 
@@ -254,3 +273,4 @@ typedef struct {
 
 AstNode *ast_location_node(AstLocation *location);
 AstNode *ast_expr_node(AstExpr *expr);
+const String *ast_type_name(const AstTypeExpr *type_expr);

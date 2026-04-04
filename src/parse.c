@@ -60,7 +60,7 @@ static AstUnaryOp parse_unary_op(Parser *self);
 static AstExpr parse_prefix_expr(Parser *self);
 static BinaryOp parse_binary_op(Parser *self);
 static AstExpr parse_expr(Parser *self, int prec);
-static AstType parse_type(Parser *self);
+static AstTypeExpr* parse_type_expr(Parser *self);
 static AstParam parse_param(Parser *self);
 static AstParams parse_params(Parser *self);
 static AstLet parse_let(Parser *self);
@@ -332,12 +332,32 @@ AstExpr parse_expr(Parser *self, int prec) {
     return expr;
 }
 
-AstType parse_type(Parser *self) {
-    AstType type = {0};
-    type.pointer = eat(self, TokenStar);
-    type.name = expect(self, TokenIdent).value;
+AstTypeExpr* parse_type_expr(Parser *self) {
+    AstNode node = make_ast_node(self);
 
-    return type;
+    AstTypeExpr *type_expr = calloc(1, sizeof(AstTypeExpr));
+    type_expr->node = node;
+
+    if (at(self, TokenIdent)) {
+        type_expr->kind = IdentTypeExpr;
+        type_expr->as.ident = parse_ident(self);
+        return type_expr;
+    } else if (eat(self, TokenStar)) {
+        type_expr->kind = PointerTypeExpr;
+        type_expr->as.pointer_to = parse_type_expr(self);
+    } else if (eat(self, TokenLBrack)) {
+        type_expr->kind = ArrayTypeExpr;
+
+        String number = expect(self, TokenNumber).value;
+        expect(self, TokenRBrack);
+
+        type_expr->as.array.length = strtoll(number.items, nullptr, 10);
+        type_expr->as.array.of = parse_type_expr(self);
+    } else {
+        report_unexpected_token_error(self);
+    }
+
+    return type_expr;
 }
 
 AstParam parse_param(Parser *self) {
@@ -346,7 +366,7 @@ AstParam parse_param(Parser *self) {
     AstParam param = {0};
     param.node = node;
     param.name = expect(self, TokenIdent).value;
-    param.type = parse_type(self);
+    param.type_expr = parse_type_expr(self);
 
     return param;
 }
@@ -373,8 +393,8 @@ AstLet parse_let(Parser *self) {
 
     let.name = expect(self, TokenIdent).value;
 
-    if (at(self, TokenIdent) || at(self, TokenStar)) {
-        let.type = box(parse_type(self));
+    if (at(self, TokenIdent) || at(self, TokenStar) || at(self, TokenLBrack)) {
+        let.type_expr = parse_type_expr(self);
     }
 
     if (eat(self, TokenEqual)) {
@@ -541,7 +561,7 @@ AstFunction parse_function(Parser *self) {
 
 
     if (at(self, TokenIdent)) {
-        function.return_type = box(parse_type(self));
+        function.return_type = parse_type_expr(self);
     }
 
     function.block = parse_block(self);
