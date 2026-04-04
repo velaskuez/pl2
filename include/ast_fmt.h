@@ -26,3 +26,4 @@ void ast_fmt_binary_op(Writer *writer, const AstBinaryOp *binary_op);
 void ast_fmt_unary_op(Writer *writer, const AstUnaryOp *unary_op);
 void ast_fmt_compound_ident(Writer *writer, const AstCompoundIdent *compound_ident);
 void ast_fmt_call(Writer *writer, const AstCall *call);
+void ast_fmt_new(Writer *writer, const AstNew *new);

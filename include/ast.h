@@ -105,10 +105,9 @@ char *binary_op_str[BinaryOpIndex+1];
 
 typedef enum {
     UnaryOpSizeOf,
-    UnaryOpNew,
 } UnaryOp;
 
-char *unary_op_str[UnaryOpNew+1];
+char *unary_op_str[UnaryOpSizeOf+1];
 
 typedef struct AstExpr AstExpr;
 typedef enum {
@@ -118,6 +117,7 @@ typedef enum {
     ExprIdent,
     ExprCompoundIdent,
     ExprCall,
+    ExprNew
 } ExprKind;
 
 typedef struct {
@@ -164,6 +164,12 @@ typedef struct {
     AstExprs args;
 } AstCall;
 
+typedef struct {
+    AstNode node;
+
+    AstTypeExpr *type_expr;
+} AstNew;
+
 struct AstExpr {
     ExprKind kind;
     union {
@@ -173,6 +179,7 @@ struct AstExpr {
         AstIdent ident;
         AstCompoundIdent compound_ident; // TODO: move to binary op
         AstCall call;
+        AstNew new;
     } as;
 };
 

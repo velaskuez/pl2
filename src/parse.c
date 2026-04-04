@@ -28,7 +28,6 @@ static int infix_prec[] = {
 
 static int prefix_prec[] = {
     [UnaryOpSizeOf] = 200,
-    [UnaryOpNew] = 200,
 };
 
 static AstExpr make_binary_op(AstExpr lhs, BinaryOp op, AstExpr rhs) {
@@ -100,7 +99,6 @@ char *binary_op_str[] = {
 
 char *unary_op_str[] = {
     [UnaryOpSizeOf] = "sizeof",
-    [UnaryOpNew] = "new",
 };
 
 AstFile parse_file(Parser *self) {
@@ -224,6 +222,17 @@ AstCompoundIdent parse_compound_ident(Parser *self) {
     return compound_ident;
 }
 
+AstNew parse_new(Parser *self) {
+    expect(self, KeywordNew);
+
+    AstNode node = make_ast_node(self);
+
+    AstNew new = {0};
+    new.node = node;
+    new.type_expr = parse_type_expr(self);
+
+    return new;
+}
 
 AstUnaryOp parse_unary_op(Parser *self) {
     AstNode node = make_ast_node(self);
@@ -234,13 +243,6 @@ AstUnaryOp parse_unary_op(Parser *self) {
     if (eat(self, KeywordSizeof)) {
         unary_op.op = UnaryOpSizeOf;
         unary_op.expr = box(parse_expr(self, prefix_prec[UnaryOpSizeOf]));
-    } else if (eat(self, KeywordNew)) {
-        unary_op.op = UnaryOpNew;
-
-        // Let expect report the error
-        if (!at(self, TokenIdent)) expect(self, TokenIdent);
-
-        unary_op.expr = box(parse_expr(self, prefix_prec[UnaryOpNew]));
     } else {
         report_unexpected_token_error(self);
     }
@@ -254,7 +256,10 @@ AstExpr parse_prefix_expr(Parser *self) {
     if (eat(self, TokenLParen)) {
         expr = parse_expr(self, 0);
         expect(self, TokenRParen);
-    } else if (at(self, KeywordSizeof) || at(self, KeywordNew)) {
+    } else if (at(self, KeywordNew)) {
+        expr.kind = ExprNew;
+        expr.as.new = parse_new(self);
+    } else if (at(self, KeywordSizeof)) {
         expr.kind = ExprUnaryOp;
         expr.as.unary_op = parse_unary_op(self);
     } else if (at(self, TokenString) || at(self, TokenChar) || at(self, TokenNumber)) {

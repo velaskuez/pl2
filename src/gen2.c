@@ -71,12 +71,12 @@ static void gen_while(Generator *self, const AstWhile *while_);
 static void gen_expr(Generator *self, const AstExpr *expr);
 static void gen_binary_op(Generator *self, const AstBinaryOp *binary_op);
 static void gen_comparison_op(Generator *self, const char *op_ext, const char *jmp_op_ext);
-static void gen_unary_op_new(Generator *self, const AstNode *node);
 static void gen_unary_op(Generator *self, const AstUnaryOp *unary_op);
 static void gen_value(Generator *self, const AstValue *value);
 static void gen_ident(Generator *self, const AstIdent *ident);
 static void gen_compound_ident(Generator *self, const AstCompoundIdent *compound_ident);
 static void gen_call(Generator *self, const AstCall *call);
+static void gen_new(Generator *self, const AstNew *new);
 
 jmp_buf fail_buf;
 
@@ -322,6 +322,9 @@ void gen_expr(Generator *self, const AstExpr *expr) {
     case ExprCall:
         gen_call(self, &expr->as.call);
 		break;
+    case ExprNew:
+        gen_new(self, &expr->as.new);
+        break;
     }
 }
 
@@ -416,12 +419,20 @@ void gen_binary_op(Generator *self, const AstBinaryOp *binary_op) {
     }
 }
 
-void gen_unary_op_new(Generator *self, const AstNode *node) {
-    assert(node->type.kind == PointerType);
-    Type *type = type_dereference(&node->type);
-    assert(type != nullptr);
+void gen_new(Generator *self, const AstNew *new) {
+    switch (new->node.type.kind) {
+    case PointerType:
+        Type *type = type_dereference(&new->node.type);
+        assert(type != nullptr);
+        self->write_fn("push.d %d", type->layout.size);
+        break;
+    case ArrayType:
+        self->write_fn("push.d %d", new->node.type.layout.size);
+        break;
+    default:
+        assert(false);
+    }
 
-    self->write_fn("push.d %d", type->layout.size);
     self->write_fn("alloc");
 }
 
@@ -429,12 +440,6 @@ void gen_unary_op(Generator *self, const AstUnaryOp *unary_op) {
     switch (unary_op->op) {
     case UnaryOpSizeOf:
         // gen_unary_op_sizeof(self, unary_op->expr);
-        break;
-    case UnaryOpNew:
-        // TODO: sizeof can accept expressions too, new can accept type expressions once that's implemented
-        assert(unary_op->expr->kind == ExprIdent);
-
-        gen_unary_op_new(self, &unary_op->node);
         break;
     }
 }

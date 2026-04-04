@@ -25,6 +25,8 @@ AstNode *ast_expr_node(AstExpr *expr) {
         return &expr->as.compound_ident.node;
     case ExprCall:
         return &expr->as.call.node;
+    case ExprNew:
+        return &expr->as.new.node;
     }
 
     return nullptr;

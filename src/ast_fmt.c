@@ -223,6 +223,9 @@ void ast_fmt_expr(Writer *writer, const AstExpr *expr, int indent) {
     case ExprCall:
         ast_fmt_call(writer, &expr->as.call);
         break;
+    case ExprNew:
+        ast_fmt_new(writer, &expr->as.new);
+        break;
     }
 }
 
@@ -297,4 +300,9 @@ void ast_fmt_call(Writer *writer, const AstCall *call) {
         sep = ", ";
     }
     writer_append_cstr(writer, ")");
+}
+
+void ast_fmt_new(Writer *writer, const AstNew *new) {
+    writer_append_cstr(writer, "new ");
+    ast_fmt_type_expr(writer, new->type_expr);
 }

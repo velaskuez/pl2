@@ -66,12 +66,16 @@ fn main() void {
     // let d0 *List;
     // let d1 *i64;
 
-    let d *List = new List;
-    let s *S1 = new S1;
+    // let d *List = new List;
+    // let s *S1 = new S1;
+    let t = new [10]i8;
+
+    t[0] = 'H';
+    t[1] = 'e';
 
     // let v = cast(*void) s;
 
-    d.s1 = s;
+    // d.s1 = s;
     // d.s1.v1 = 77;
 
     // let e i32 = 8;

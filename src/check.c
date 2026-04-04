@@ -27,6 +27,7 @@ static void check_binary_op(Checker *self, AstBinaryOp *binary_op);
 static void check_unary_op(Checker *self, AstUnaryOp *unary_op);
 static void check_value(Checker *self, AstValue *value);
 static void check_call(Checker *self, AstCall *call);
+static void check_new(Checker *self, AstNew *new);
 static void check_expr(Checker *self, AstExpr *expr);
 static void check_return(Checker *self, AstExpr *expr);
 static void check_if(Checker *self, AstIf *if_);
@@ -253,7 +254,7 @@ void check_index(Checker *self, AstIndex *index) {
 
     check_expr(self, &index->expr);
     AstNode *expr_node = ast_expr_node(&index->expr);
-    if (!type_equal(&expr_node->type, &i64_type)) {
+    if (!(expr_node->coercible && type_coerce(&expr_node->type, &i64_type)) && !type_equal(&expr_node->type, &i64_type)) {
         report_error(self->report, "%.*s cannot be indexed by non-i64 type", STRING_FMT_ARGS(&index->ident.name));
         longjmp(statement_jmp_buf, -1);
     }
@@ -417,7 +418,7 @@ void check_binary_op(Checker *self, AstBinaryOp *binary_op) {
 }
 
 void check_unary_op(Checker *self, AstUnaryOp *unary_op) {
-    // TODO: sizeof can accept expressions too, new can accept type expressions once that's implemented
+    // TODO: sizeof can accept expressions too
     assert(unary_op->expr->kind == ExprIdent);
 
     Symbol *symbol = symbol_find_with_kind(self->symbols, &unary_op->expr->as.ident.name, TypeSymbol);
@@ -430,9 +431,6 @@ void check_unary_op(Checker *self, AstUnaryOp *unary_op) {
     switch (unary_op->op) {
     case UnaryOpSizeOf:
         type = i64_type;
-        break;
-    case UnaryOpNew:
-        type = type_make_pointer(&symbol->type);
         break;
     }
 
@@ -450,7 +448,7 @@ void check_value(Checker *self, AstValue *value) {
         coercible = false;
         break;
     case ValueChar:
-        type = i32_type;
+        type = i8_type;
         break;
     case ValueNumber:
         // TODO: It would be nice to store the sign on the value
@@ -508,6 +506,16 @@ void check_call(Checker *self, AstCall *call) {
     }
 }
 
+void check_new(Checker *self, AstNew *new) {
+    new->node.type = check_type_expr(self, new->type_expr, statement_jmp_buf);
+
+    if (new->node.type.kind == ArrayType) {
+        return;
+    }
+
+    new->node.type = type_make_pointer(&new->node.type);
+}
+
 void check_expr(Checker *self, AstExpr *expr) {
     switch (expr->kind) {
     case ExprBinaryOp:
@@ -527,6 +535,9 @@ void check_expr(Checker *self, AstExpr *expr) {
         break;
     case ExprCall:
         check_call(self, &expr->as.call);
+        break;
+    case ExprNew:
+        check_new(self, &expr->as.new);
         break;
     }
 }
