@@ -121,7 +121,6 @@ void ast_fmt_statement(Writer *writer, const AstStatement *statement, int indent
     case StatementWhile:
         ast_fmt_while(writer, &statement->as.while_, indent);
         break;
-    break;
     }
 
     writer_append_cstr(writer, ";");
@@ -226,6 +225,9 @@ void ast_fmt_expr(Writer *writer, const AstExpr *expr, int indent) {
     case ExprNew:
         ast_fmt_new(writer, &expr->as.new);
         break;
+    case ExprCast:
+        ast_fmt_cast(writer, &expr->as.cast);
+        break;
     }
 }
 
@@ -305,4 +307,10 @@ void ast_fmt_call(Writer *writer, const AstCall *call) {
 void ast_fmt_new(Writer *writer, const AstNew *new) {
     writer_append_cstr(writer, "new ");
     ast_fmt_type_expr(writer, new->type_expr);
+}
+
+void ast_fmt_cast(Writer *writer, const AstCast *cast) {
+    writer_append_cstr(writer, "cast(");
+    ast_fmt_type_expr(writer, cast->type_expr);
+    writer_append_cstr(writer, ")");
 }

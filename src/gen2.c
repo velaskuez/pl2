@@ -77,6 +77,7 @@ static void gen_ident(Generator *self, const AstIdent *ident);
 static void gen_compound_ident(Generator *self, const AstCompoundIdent *compound_ident);
 static void gen_call(Generator *self, const AstCall *call);
 static void gen_new(Generator *self, const AstNew *new);
+static void gen_cast(Generator *self, const AstCast *cast);
 
 jmp_buf fail_buf;
 
@@ -325,6 +326,9 @@ void gen_expr(Generator *self, const AstExpr *expr) {
     case ExprNew:
         gen_new(self, &expr->as.new);
         break;
+    case ExprCast:
+        gen_cast(self, &expr->as.cast);
+        break;
     }
 }
 
@@ -434,6 +438,35 @@ void gen_new(Generator *self, const AstNew *new) {
     }
 
     self->write_fn("alloc");
+}
+
+void gen_cast(Generator *self, const AstCast *cast) {
+    gen_expr(self, cast->expr);
+
+    Type from_type = ast_expr_node(cast->expr)->type;
+    Type to_type = cast->node.type;
+
+    switch (to_type.kind) {
+    case PointerType:
+    case ArrayType:
+        // No-op
+        return;
+    case StructType:
+        assert(type_equal(&from_type, &to_type));
+        return;
+    case PrimitiveType:
+    }
+
+    assert(to_type.as.primitive.kind != PrimitiveVoid);
+
+    if (from_type.as.primitive.kind == PrimitiveI64 && to_type.as.primitive.kind == PrimitiveI32) {
+        // No-op - stack will truncate
+        return;
+    }
+
+    // i64 -> i8 & i32 -> i8 - instruction needed to zero out the i8 slot
+    // i32 -> i64 & i8 -> i64 - instruction needed to avoid junk ending up in i64 slot
+    panic("unimplemented");
 }
 
 void gen_unary_op(Generator *self, const AstUnaryOp *unary_op) {

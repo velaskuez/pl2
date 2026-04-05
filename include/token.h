@@ -12,6 +12,7 @@
 #define KEYWORD_SIZEOF "sizeof"
 #define KEYWORD_NEW "new"
 #define KEYWORD_LET "let"
+#define KEYWORD_CAST "cast"
 
 typedef struct {
     int line;
@@ -37,6 +38,7 @@ typedef enum {
     KeywordSizeof,
     KeywordNew,
     KeywordLet,
+    KeywordCast,
 
     // Symbols
     TokenComma,

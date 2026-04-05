@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stdio.h>
 
 #include "int.h"
 #include "str.h"
@@ -53,6 +54,8 @@ typedef enum {
     PrimitiveI64,
 } TypePrimitiveKind;
 
+char *primitive_type_str[PrimitiveI64+1];
+
 typedef struct {
     TypePrimitiveKind kind;
 } TypePrimitive;
@@ -93,3 +96,4 @@ Type type_make_struct(String name, const Types *types, const Strings *names);
 TypeStructField* struct_find_field(const TypeStruct *struct_, const String *name);
 
 char *type_fmt(const Type *self);
+void type_fprint(FILE *fp, const Type *self);

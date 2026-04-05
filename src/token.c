@@ -48,6 +48,7 @@ char *token_str[] = {
     [KeywordSizeof] = "sizeof",
     [KeywordNew] = "new",
     [KeywordLet] = "let",
+    [KeywordCast] = "cast",
 
     [TokenComma] = ",",
     [TokenDot] = ".",
@@ -247,6 +248,7 @@ TokenKind check_keyword(const String *word) {
     if (string_cstr_cmp(word, KEYWORD_SIZEOF) == 0) return KeywordSizeof;
     if (string_cstr_cmp(word, KEYWORD_NEW) == 0) return KeywordNew;
     if (string_cstr_cmp(word, KEYWORD_LET) == 0) return KeywordLet;
+    if (string_cstr_cmp(word, KEYWORD_CAST) == 0) return KeywordCast;
 
     return 0;
 }

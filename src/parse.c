@@ -56,6 +56,7 @@ static AstCall parse_call(Parser *self);
 static AstIdent parse_ident(Parser *self);
 static AstCompoundIdent parse_compound_ident(Parser *self);
 static AstUnaryOp parse_unary_op(Parser *self);
+static AstCast parse_cast(Parser *self);
 static AstExpr parse_prefix_expr(Parser *self);
 static BinaryOp parse_binary_op(Parser *self);
 static AstExpr parse_expr(Parser *self, int prec);
@@ -250,6 +251,23 @@ AstUnaryOp parse_unary_op(Parser *self) {
     return unary_op;
 }
 
+AstCast parse_cast(Parser *self) {
+    expect(self, KeywordCast);
+
+    AstNode node = make_ast_node(self);
+
+    AstCast cast = {0};
+    cast.node = node;
+
+    expect(self, TokenLParen);
+    cast.type_expr = parse_type_expr(self);
+    expect(self, TokenRParen);
+
+    cast.expr = box(parse_expr(self, 0));
+
+    return cast;
+}
+
 AstExpr parse_prefix_expr(Parser *self) {
     AstExpr expr = {0};
 
@@ -262,6 +280,9 @@ AstExpr parse_prefix_expr(Parser *self) {
     } else if (at(self, KeywordSizeof)) {
         expr.kind = ExprUnaryOp;
         expr.as.unary_op = parse_unary_op(self);
+    } else if (at(self, KeywordCast)) {
+        expr.kind = ExprCast;
+        expr.as.cast = parse_cast(self);
     } else if (at(self, TokenString) || at(self, TokenChar) || at(self, TokenNumber)) {
         expr.kind = ExprValue;
         expr.as.value = parse_value(self);

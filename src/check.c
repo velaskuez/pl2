@@ -28,6 +28,7 @@ static void check_unary_op(Checker *self, AstUnaryOp *unary_op);
 static void check_value(Checker *self, AstValue *value);
 static void check_call(Checker *self, AstCall *call);
 static void check_new(Checker *self, AstNew *new);
+static void check_cast(Checker *self, AstCast *cast);
 static void check_expr(Checker *self, AstExpr *expr);
 static void check_return(Checker *self, AstExpr *expr);
 static void check_if(Checker *self, AstIf *if_);
@@ -35,7 +36,7 @@ static void check_while(Checker *self, AstWhile *while_);
 
 static void init_scoped_symbols(Checker *self);
 static void free_scoped_symbols(Checker *self);
-static void report_type_mismatch_error1(Report *self, const Type *want, const Type *have);
+static void report_type_mismatch_error(Report *self, const Type *want, const Type *have);
 
 // Each AST node that is processed in a loop will use longjmp(buf, -1)
 // to avoid having to handle the error at each layer of the AST
@@ -249,6 +250,11 @@ void check_index(Checker *self, AstIndex *index) {
         longjmp(statement_jmp_buf, -1);
     }
 
+    if (type->kind == PrimitiveType && type->as.primitive.kind == PrimitiveVoid) {
+        report_error(self->report, "cannot index %.*s with void element", STRING_FMT_ARGS(&index->ident.name));
+        longjmp(statement_jmp_buf, -1);
+    }
+
     index->node.type = *type;
     index->node.coercible = false;
 
@@ -258,6 +264,8 @@ void check_index(Checker *self, AstIndex *index) {
         report_error(self->report, "%.*s cannot be indexed by non-i64 type", STRING_FMT_ARGS(&index->ident.name));
         longjmp(statement_jmp_buf, -1);
     }
+
+    expr_node->type = i64_type;
 }
 
 void check_location(Checker *self, AstLocation *location) {
@@ -284,7 +292,7 @@ void check_assign(Checker *self, AstAssign *assign) {
     assert(location_node != nullptr);
 
     if (!(expr_node->coercible && type_coerce(&expr_node->type, &location_node->type)) && !type_equal(&location_node->type, &expr_node->type)) {
-        report_type_mismatch_error1(self->report, &location_node->type, &expr_node->type);
+        report_type_mismatch_error(self->report, &location_node->type, &expr_node->type);
         longjmp(statement_jmp_buf, -1);
     }
 
@@ -324,7 +332,7 @@ void check_let(Checker *self, AstLet *let) {
 
     if (expr_node != nullptr) {
         if (!(expr_node->coercible && type_coerce(&expr_node->type, &let_type)) && !type_equal(&expr_node->type, &let_type)) {
-            report_type_mismatch_error1(self->report, &let_type, &expr_node->type);
+            report_type_mismatch_error(self->report, &let_type, &expr_node->type);
             longjmp(statement_jmp_buf, -1);
         }
 
@@ -374,7 +382,7 @@ void check_binary_op(Checker *self, AstBinaryOp *binary_op) {
         assert(!(left_coercible && right_coercible));
 
         if (!left_coercible && !right_coercible) {
-            report_type_mismatch_error1(self->report, &lhs_node->type, &rhs_node->type);
+            report_type_mismatch_error(self->report, &lhs_node->type, &rhs_node->type);
         }
 
         if (left_coercible) {
@@ -495,7 +503,7 @@ void check_call(Checker *self, AstCall *call) {
         Type type = argument_types.items[i];
 
         if (!(expr_node->coercible && type_coerce(&expr_node->type, &type)) && !type_equal(&expr_node->type, &type)) {
-            report_type_mismatch_error1(self->report, &type, &expr_node->type);
+            report_type_mismatch_error(self->report, &type, &expr_node->type);
             longjmp(statement_jmp_buf, -1);
         }
 
@@ -514,6 +522,18 @@ void check_new(Checker *self, AstNew *new) {
     }
 
     new->node.type = type_make_pointer(&new->node.type);
+}
+
+void check_cast(Checker *self, AstCast *cast) {
+    cast->node.type = check_type_expr(self, cast->type_expr, statement_jmp_buf);
+    check_expr(self, cast->expr);
+
+    Type cast_from = ast_expr_node(cast->expr)->type;
+    if (!type_cast(&cast_from, &cast->node.type)) {
+        report_error(self->report, "%d:%d cannot cast types",
+                cast->node.position.line,
+                cast->node.position.col);
+    }
 }
 
 void check_expr(Checker *self, AstExpr *expr) {
@@ -539,6 +559,9 @@ void check_expr(Checker *self, AstExpr *expr) {
     case ExprNew:
         check_new(self, &expr->as.new);
         break;
+    case ExprCast:
+        check_cast(self, &expr->as.cast);
+        break;
     }
 }
 
@@ -547,7 +570,7 @@ void check_return(Checker *self, AstExpr *expr) {
 
     if (expr == nullptr) {
         if (!type_equal(&self->current_function_return_type, &void_type)) {
-            report_type_mismatch_error1(self->report, &self->current_function_return_type, &void_type);
+            report_type_mismatch_error(self->report, &self->current_function_return_type, &void_type);
             longjmp(statement_jmp_buf, -1);
         }
 
@@ -558,7 +581,7 @@ void check_return(Checker *self, AstExpr *expr) {
     AstNode *expr_node = ast_expr_node(expr);
 
     if (!type_equal(&self->current_function_return_type, &expr_node->type)) {
-        report_type_mismatch_error1(self->report, &self->current_function_return_type, &expr_node->type);
+        report_type_mismatch_error(self->report, &self->current_function_return_type, &expr_node->type);
         longjmp(statement_jmp_buf, -1);
     }
 }
@@ -571,13 +594,16 @@ void check_while(Checker *self, AstWhile *while_) {
     return;
 }
 
-void report_type_mismatch_error1(Report *self, const Type *want, const Type *have) {
-    report_error(self, "types don't match\n"
-                 " ~ want %s\n"
-                 " ~ have %s",
-                 type_fmt(want),
-                 type_fmt(have));
-    return;
+void report_type_mismatch_error(Report *self, const Type *want, const Type *have) {
+    report_error(self, "types don't match\n");
+
+    fprintf(stderr, " ~ want ");
+    type_fprint(stderr, want);
+    fprintf(stderr, "\n");
+
+    fprintf(stderr, " ~ have ");
+    type_fprint(stderr, have);
+    fprintf(stderr, "\n");
 }
 
 static void init_scoped_symbols(Checker *self) {

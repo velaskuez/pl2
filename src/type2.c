@@ -1,5 +1,13 @@
 #include "type2.h"
 #include "array.h"
+#include "ast.h"
+
+char *primitive_type_str[PrimitiveI64+1] = {
+    [PrimitiveVoid] = "void",
+    [PrimitiveI8] = "i8",
+    [PrimitiveI32] = "i32",
+    [PrimitiveI64] = "i64"
+};
 
 char *type_kind_str[ArrayType+1] = {
     [PrimitiveType] = "primitive",
@@ -82,16 +90,19 @@ bool type_coerce(const Type *from, const Type *to) {
 bool type_cast(const Type *from, const Type *to) {
     switch (from->kind) {
     case PrimitiveType:
-        return to->kind == PrimitiveType;
+        return (to->kind == PrimitiveType && to->as.primitive.kind != PrimitiveVoid) ||
+            (to->kind == PointerType && from->as.primitive.kind == PrimitiveI64);
     case PointerType:
         return to->kind == PointerType ||
-               to->kind == PrimitiveType ||
-               (to->kind == ArrayType && type_equal(from->as.pointer.type, to->as.array.type));
+               (to->kind == PrimitiveType && to->as.primitive.kind == PrimitiveI64) ||
+               // (to->kind == ArrayType && type_equal(from->as.pointer.type, to->as.array.type));
+               to->kind == ArrayType;
     case StructType:
         return type_equal(from, to);
     case ArrayType:
         return type_equal(from, to) ||
-               (to->kind == PointerType && type_equal(from->as.array.type, to->as.pointer.type));
+               // (to->kind == PointerType && type_equal(from->as.array.type, to->as.pointer.type));
+               to->kind == PointerType;
     }
 }
 
@@ -198,4 +209,23 @@ TypeStructField* struct_find_field(const TypeStruct *struct_, const String *name
 
 char *type_fmt(const Type *self) {
     return "TODO";
+}
+
+void type_fprint(FILE *fp, const Type *self) {
+    switch (self->kind) {
+    case PrimitiveType:
+        fprintf(fp, "%s", primitive_type_str[self->as.primitive.kind]);
+        break;
+    case PointerType:
+        fprintf(fp, "*");
+        type_fprint(fp, self->as.pointer.type);
+        break;
+    case StructType:
+        fprintf(fp, "%.*s", STRING_FMT_ARGS(&self->as.struct_.name));
+        break;
+    case ArrayType:
+        fprintf(fp, "[%d]", self->as.array.length);
+        type_fprint(fp, self->as.array.type);
+        break;
+    }
 }
