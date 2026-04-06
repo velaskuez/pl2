@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 #include "array.h"
 #include "token.h"
@@ -443,7 +444,16 @@ AstIf parse_if(Parser *self) {
     if_.block = parse_block(self);
 
     if (eat(self, KeywordElse)) {
-        if_.else_ = box(parse_if(self));
+        if_.else_block = calloc(1, sizeof(AstBlock));
+
+        if (at(self, KeywordIf)) {
+            AstStatement if_statement = parse_statement(self);
+            assert(if_statement.kind == StatementIf);
+
+            append(&if_.else_block->statements, if_statement);
+        } else {
+            *if_.else_block = parse_block(self);
+        }
     }
 
     return if_;

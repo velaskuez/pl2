@@ -237,7 +237,7 @@ typedef struct AstIf AstIf;
 struct AstIf {
     AstExpr condition;
     AstBlock block;
-    AstIf *else_;
+    AstBlock *else_block;
 };
 
 typedef struct {

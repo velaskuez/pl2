@@ -188,9 +188,9 @@ void ast_fmt_if(Writer *writer, const AstIf *if_, int indent) {
     ast_fmt_expr(writer, &if_->condition, 0);
     writer_append_cstr(writer, " ");
     ast_fmt_block(writer, &if_->block, indent + 1);
-    if (if_->else_ != nullptr) {
+    if (if_->else_block != nullptr) {
         writer_append_cstr(writer, " else ");
-        ast_fmt_if(writer, if_->else_, indent);
+        ast_fmt_block(writer, if_->else_block, indent);
     }
 }
 

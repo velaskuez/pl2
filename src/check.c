@@ -589,11 +589,31 @@ void check_return(Checker *self, AstExpr *expr) {
 }
 
 void check_if(Checker *self, AstIf *if_) {
-    return;
+    check_expr(self, &if_->condition);
+
+    Type condition_type = ast_expr_node(&if_->condition)->type;
+    if (condition_type.kind == StructType) {
+        report_error(self->report, "cannot use struct as an if condition");
+        longjmp(statement_jmp_buf, -1);
+    }
+
+    check_block(self, &if_->block);
+
+    if (if_->else_block != nullptr) {
+        check_block(self, if_->else_block);
+    }
 }
 
 void check_while(Checker *self, AstWhile *while_) {
-    return;
+    check_expr(self, &while_->condition);
+
+    Type condition_type = ast_expr_node(&while_->condition)->type;
+    if (condition_type.kind == StructType) {
+        report_error(self->report, "cannot use struct as a while condition");
+        longjmp(statement_jmp_buf, -1);
+    }
+
+    check_block(self, &while_->block);
 }
 
 void report_type_mismatch_error(Report *self, const Type *want, const Type *have) {

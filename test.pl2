@@ -58,11 +58,65 @@ load.d 0
 alloc
 ret.d
 ; unreachable: ");
+
     return cast(*void) 0;
 }
 
+fn print(string *i8, size i64) i32 {
+@output stack ("
+push 1 ; stdout
+load.d 0
+load.d 2
+push 4 ; write
+system
+ret.w
+; unreachable: ")
+
+    // TODO
+    return cast(i32) 0;
+}
+
+struct ByteArray {
+    len i64;
+    cap i64;
+    ptr *i8;
+}
+
+fn ByteArray_push(self *ByteArray, x i8) {
+    if self.cap == 0 {
+        self.cap = 128;
+    }
+
+    if self.ptr == cast(*i8) 0 {
+        self.ptr = cast(*i8) alloc(self.cap * 1)
+    }
+
+    if self.len == self.cap {
+        self.cap = self.cap * 2;
+        let ptr = cast(*i8) alloc(self.cap * 1);
+        // copy (or implement realloc?)
+        self.ptr = ptr;
+    }
+
+    // TODO
+    let ptr = self.ptr;
+    ptr[self.len] = x;
+
+    self.len = self.len + 1;
+
+    return;
+}
+
 fn main() void {
-    // let s = "Hello, World!";
+    let buf = new ByteArray;
+    ByteArray_push(buf, 'T');
+    ByteArray_push(buf, 'e');
+    ByteArray_push(buf, 's');
+    ByteArray_push(buf, 't');
+    print(buf.ptr, buf.len);
+
+    let s = "Hello, World!";
+    print(s, 13);
 
     // let c i32 = 3;
     // let b = 4 + a + c + 3;
@@ -76,13 +130,13 @@ fn main() void {
 
     // let d *List = new List;
     // let s *S1 = new S1;
-    let t = cast(*i8) new [10]i8;
+    // let t = cast(*i8) new [10]i8;
 
-    let x = cast(i32) (cast(i64) 5 + 5);
+    // let x = cast(i32) (cast(i64) 5 + 5);
 
-    let buf = cast(*i8) alloc(512);
+    // let buf = cast(*i8) alloc(512);
 
-    t[0] = 'H';
+    // t[0] = 'H';
     // t[1] = 'e';
 
     // let v = cast(*void) s;
