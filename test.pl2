@@ -17,6 +17,12 @@ struct TypeExprs {
     f [10]*S1;
 }
 fn type_exprs(a i32, b [10]i32, c *i32, d **i32, e *[10]*i32, f [10]*S1) void {
+    let a0 i32;
+    let b0 [10]i32;
+    let c0 *i32;
+    let d0 **i32;
+    let e0 *[10]*i32;
+    let f0 [10]*S1;
     return;
 }
 
@@ -55,13 +61,6 @@ fn test(a i32) i32 {
 // }
 
 fn main() void {
-    // let a i32 = test(1 + 2) + 4;
-    // let b [10]i32;
-    // let c *i32;
-    // let d **i32;
-    // let e *[10]*i32;
-    // let f [10]*S1;
-
     // let s = "Hello, World!";
 
     // let c i32 = 3;
@@ -78,7 +77,7 @@ fn main() void {
     // let s *S1 = new S1;
     let t = cast(*i8) new [10]i8;
 
-    // let x = cast(i32) (5 + 5);
+    let x = cast(i32) (cast(i64) 5 + 5);
 
     t[0] = 'H';
     // t[1] = 'e';

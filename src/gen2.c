@@ -459,14 +459,26 @@ void gen_cast(Generator *self, const AstCast *cast) {
 
     assert(to_type.as.primitive.kind != PrimitiveVoid);
 
-    if (from_type.as.primitive.kind == PrimitiveI64 && to_type.as.primitive.kind == PrimitiveI32) {
-        // No-op - stack will truncate
-        return;
-    }
+    TypePrimitiveKind from_kind = from_type.as.primitive.kind;
+    TypePrimitiveKind to_kind = to_type.as.primitive.kind;
 
-    // i64 -> i8 & i32 -> i8 - instruction needed to zero out the i8 slot
-    // i32 -> i64 & i8 -> i64 - instruction needed to avoid junk ending up in i64 slot
-    panic("unimplemented");
+    if (from_kind == to_kind) {
+        return;
+    } else if (from_kind == PrimitiveI8 && to_kind == PrimitiveI32) {
+        self->write_fn("b2i");
+    } else if (from_kind == PrimitiveI8 && to_kind == PrimitiveI64) {
+        self->write_fn("b2l");
+    } else if (from_kind == PrimitiveI32 && to_kind == PrimitiveI8) {
+        self->write_fn("i2b");
+    } else if (from_kind == PrimitiveI32 && to_kind == PrimitiveI64) {
+        self->write_fn("i2l");
+    } else if (from_kind == PrimitiveI64 && to_kind == PrimitiveI8) {
+        self->write_fn("l2b");
+    } else if (from_kind == PrimitiveI64 && to_kind == PrimitiveI32) {
+        self->write_fn("l2i");
+    } else {
+        panic("unreachable");
+    }
 }
 
 void gen_unary_op(Generator *self, const AstUnaryOp *unary_op) {
