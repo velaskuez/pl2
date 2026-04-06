@@ -121,6 +121,9 @@ void ast_fmt_statement(Writer *writer, const AstStatement *statement, int indent
     case StatementWhile:
         ast_fmt_while(writer, &statement->as.while_, indent);
         break;
+    case StatementOutput:
+        // TODO
+        break;
     }
 
     writer_append_cstr(writer, ";");

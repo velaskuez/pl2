@@ -218,6 +218,7 @@ typedef struct {
 // TODO: use binary_op-like expression with `.` and `[]` as the only operators
 // `[]` has greater precedence than `.`
 // So variants will be AstIdent and AstAccess
+
 typedef struct {
     LocationKind kind;
     union {
@@ -244,6 +245,24 @@ typedef struct {
     AstBlock block;
 } AstWhile;
 
+// TODO: expr and location could share something like this. Location can also
+// be one or more dereferences
+typedef enum {
+    AccessOpMember,
+    AccessOpIndex,
+} AccessOp;
+
+typedef struct {
+    AccessOp op;
+    AstExpr *lhs;
+    AstExpr *rhs;
+} AstAccess;
+
+typedef struct {
+    String target;
+    String contents;
+} AstOutput;
+
 typedef enum {
     StatementAssign,
     StatementLet,
@@ -251,6 +270,8 @@ typedef enum {
     StatementReturn,
     StatementIf,
     StatementWhile,
+
+    StatementOutput
 } StatementKind;
 
 struct AstStatement {
@@ -262,6 +283,9 @@ struct AstStatement {
         AstExpr *return_;
         AstIf if_;
         AstWhile while_;
+
+        // This has been hacked in. Could be generalised
+        AstOutput output;
     } as;
 };
 

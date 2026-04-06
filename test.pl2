@@ -52,13 +52,14 @@ fn test(a i32) i32 {
     return a;
 }
 
-// fn alloc(size i64) *void {
-//     @stack {
-//         load.d 0
-//         alloc
-//         ret.d
-//     }
-// }
+fn alloc(size i64) *void {
+@output stack ("
+load.d 0
+alloc
+ret.d
+; unreachable: ");
+    return cast(*void) 0;
+}
 
 fn main() void {
     // let s = "Hello, World!";
@@ -78,6 +79,8 @@ fn main() void {
     let t = cast(*i8) new [10]i8;
 
     let x = cast(i32) (cast(i64) 5 + 5);
+
+    let buf = cast(*i8) alloc(512);
 
     t[0] = 'H';
     // t[1] = 'e';

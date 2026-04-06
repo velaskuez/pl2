@@ -91,17 +91,15 @@ bool type_cast(const Type *from, const Type *to) {
     switch (from->kind) {
     case PrimitiveType:
         return (to->kind == PrimitiveType && to->as.primitive.kind != PrimitiveVoid) ||
-            (to->kind == PointerType && from->as.primitive.kind == PrimitiveI64);
+            to->kind == PointerType;
     case PointerType:
         return to->kind == PointerType ||
                (to->kind == PrimitiveType && to->as.primitive.kind == PrimitiveI64) ||
-               // (to->kind == ArrayType && type_equal(from->as.pointer.type, to->as.array.type));
                to->kind == ArrayType;
     case StructType:
         return type_equal(from, to);
     case ArrayType:
         return type_equal(from, to) ||
-               // (to->kind == PointerType && type_equal(from->as.array.type, to->as.pointer.type));
                to->kind == PointerType;
     }
 }

@@ -50,6 +50,7 @@ char *token_str[] = {
     [KeywordLet] = "let",
     [KeywordCast] = "cast",
 
+    [TokenAt] = "@",
     [TokenComma] = ",",
     [TokenDot] = ".",
     [TokenEqual] = "=",
@@ -82,6 +83,7 @@ int token_collect(Tokeniser *self) {
         if (iswspace(c)) continue;
 
         switch (c) {
+        case '@': create_token(self, TokenAt, EMPTY_STRING, position); continue;
         case ',': create_token(self, TokenComma, EMPTY_STRING, position); continue;
         case '.': create_token(self, TokenDot, EMPTY_STRING, position); continue;
         case '=': create_token(self, TokenEqual, EMPTY_STRING, position); continue;

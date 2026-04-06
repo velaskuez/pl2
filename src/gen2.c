@@ -67,6 +67,7 @@ static void gen_let(Generator *self, const AstLet *let);
 static void gen_return(Generator *self, const AstExpr *return_);
 static void gen_if(Generator *self, const AstIf *if_);
 static void gen_while(Generator *self, const AstWhile *while_);
+static void gen_output(Generator *self, const AstOutput *output);
 
 static void gen_expr(Generator *self, const AstExpr *expr);
 static void gen_binary_op(Generator *self, const AstBinaryOp *binary_op);
@@ -160,6 +161,9 @@ void gen_statement(Generator *self, const AstStatement *statement) {
         break;
     case StatementWhile:
         gen_while(self, &statement->as.while_);
+        break;
+    case StatementOutput:
+        gen_output(self, &statement->as.output);
         break;
     }
 }
@@ -302,6 +306,12 @@ void gen_return(Generator *self, const AstExpr *expr) {
 // TODO
 void gen_if(Generator *self, const AstIf *if_) {}
 void gen_while(Generator *self, const AstWhile *while_) {}
+
+void gen_output(Generator *self, const AstOutput *output) {
+    assert(string_cstr_cmp(&output->target, "stack") == 0);
+    String contents = string_trim(&output->contents);
+    self->write_fn("%.*s", STRING_FMT_ARGS(&contents));
+}
 
 void gen_expr(Generator *self, const AstExpr *expr) {
     switch (expr->kind) {

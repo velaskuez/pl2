@@ -187,6 +187,8 @@ void check_statement(Checker *self, AstStatement *statement) {
     case StatementWhile:
         check_while(self, &statement->as.while_);
         break;
+    case StatementOutput:
+        break;
     }
 }
 

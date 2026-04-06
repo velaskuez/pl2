@@ -67,6 +67,7 @@ static AstLet parse_let(Parser *self);
 static AstIf parse_if(Parser *self);
 static AstWhile parse_while(Parser *self);
 static AstExpr *parse_return(Parser *self);
+static AstOutput parse_output(Parser *self);
 static AstIndex parse_index(Parser *self);
 static AstLocation parse_location(Parser *self);
 static AstAssign parse_assign(Parser *self);
@@ -472,6 +473,27 @@ AstExpr *parse_return(Parser *self) {
     return nullptr;
 }
 
+AstOutput parse_output(Parser *self) {
+    expect(self, TokenAt);
+
+    AstOutput output = {0};
+
+    String directive = expect(self, TokenIdent).value;
+    if (string_cstr_cmp(&directive, "output") != 0) {
+        self->position--;
+        report_unexpected_token_error(self);
+        return output; // unreachable
+    }
+
+    output.target = expect(self, TokenIdent).value;
+
+    expect(self, TokenLParen);
+    output.contents = expect(self, TokenString).value;
+    expect(self, TokenRParen);
+
+    return output;
+}
+
 AstIndex parse_index(Parser *self) {
     AstNode node = make_ast_node(self);
 
@@ -537,6 +559,9 @@ AstStatement parse_statement(Parser *self) {
     } else if (at(self, KeywordReturn)) {
         statement.kind = StatementReturn;
         statement.as.return_ = parse_return(self);
+    } else if (at(self, TokenAt)) {
+        statement.kind = StatementOutput;
+        statement.as.output = parse_output(self);
     } else if (at(self, TokenIdent)) {
         statement.kind = StatementAssign;
         statement.as.assign = parse_assign(self);
@@ -586,7 +611,7 @@ AstFunction parse_function(Parser *self) {
     expect(self, TokenRParen);
 
 
-    if (at(self, TokenIdent)) {
+    if (at(self, TokenIdent) || at(self, TokenStar) || at(self, TokenLBrack)) {
         function.return_type = parse_type_expr(self);
     }
 

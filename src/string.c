@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <ctype.h>
 
 #include "array.h"
 #include "str.h"
@@ -63,6 +64,15 @@ void string_append_cstr(String *s, const char *t) {
     for (const char *c = t; *c; c++) {
         append(s, *c)
     }
+}
+
+String string_trim(const String *s) {
+    String t = *s;
+
+    for(size_t i = 0; i < t.len && isspace(t.items[i]); i++, t.items++, t.len--);
+    for(size_t i = t.len-1; i > 0 && isspace(t.items[i]); i--, t.len--);
+
+    return t;
 }
 
 void string_append_string(String *s, const String *t) {

@@ -41,6 +41,7 @@ typedef enum {
     KeywordCast,
 
     // Symbols
+    TokenAt,
     TokenComma,
     TokenDot,
     TokenEqual,
