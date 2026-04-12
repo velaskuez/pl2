@@ -312,10 +312,8 @@ void gen_if(Generator *self, const AstIf *if_) {
     i32 l1 = self->label++;
 
     AstNode* condition_node = ast_expr_node((AstExpr *)&if_->condition);
-    self->write_fn("; condition", op_ext(self, condition_node));
     gen_expr(self, &if_->condition);
 
-    self->write_fn("; if", op_ext(self, condition_node));
     self->write_fn("push%s 0", op_ext(self, condition_node));
     self->write_fn("cmp%s", op_ext(self, condition_node));
     self->write_fn("jmp.eq l%d", l1);
@@ -327,8 +325,21 @@ void gen_if(Generator *self, const AstIf *if_) {
     }
 }
 
-// TODO
-void gen_while(Generator *self, const AstWhile *while_) {}
+void gen_while(Generator *self, const AstWhile *while_) {
+    i32 l1 = self->label++;
+    i32 l2 = self->label++;
+
+    AstNode* condition_node = ast_expr_node((AstExpr *)&while_->condition);
+
+    self->write_fn("l%d:", l1);
+    gen_expr(self, &while_->condition);
+    self->write_fn("push%s 0", op_ext(self, condition_node));
+    self->write_fn("cmp%s", op_ext(self, condition_node));
+    self->write_fn("jmp.eq l%d", l2);
+    gen_block(self, &while_->block);
+    self->write_fn("jmp l%d", l1);
+    self->write_fn("l%d:", l2);
+}
 
 void gen_output(Generator *self, const AstOutput *output) {
     assert(string_cstr_cmp(&output->target, "stack") == 0);
@@ -379,6 +390,7 @@ void gen_comparison_op(Generator *self, const char *ext, const char *jmp_ext) {
 }
 
 void gen_binary_op(Generator *self, const AstBinaryOp *binary_op) {
+    const AstNode *node = &binary_op->node;
     AstNode *lhs_node = ast_expr_node(binary_op->left);
 
     // TODO: The same code for a compound identifier location can be re-used for a
@@ -388,14 +400,18 @@ void gen_binary_op(Generator *self, const AstBinaryOp *binary_op) {
     // be worth reusing the index location type too, but will need tweaking to
     // parse a list of expressions (all of which should resolve/coerce to i64)
     if (binary_op->op == BinaryOpIndex) {
+        // LHS contains the pointer/array
         gen_expr(self, binary_op->left);
 
-
-        // This should have been checked earlier - the rhs must be I64
+        // RHS contains an I64 index (checked by check.c)
         gen_expr(self, binary_op->right);
-        self->write_fn("push.d %d", lhs_node->type.layout.size);
+
+        // binary_op contains the dereferenced type, so we use the
+        // layout from that
+        self->write_fn("; here");
+        self->write_fn("push.d %d", node->type.layout.size);
         self->write_fn("mul.d");
-        self->write_fn("aload%s", op_ext(self, lhs_node));
+        self->write_fn("aload%s", op_ext(self, node));
         return;
     }
 
@@ -409,7 +425,7 @@ void gen_binary_op(Generator *self, const AstBinaryOp *binary_op) {
         gen_comparison_op(self, ext, ".eq");
 		break;
     case BinaryOpNeq:
-        gen_comparison_op(self, ext, ".neq");
+        gen_comparison_op(self, ext, ".ne");
 		break;
     case BinaryOpLt:
         gen_comparison_op(self, ext, ".lt");
@@ -543,7 +559,7 @@ void gen_value(Generator *self, const AstValue *value) {
     switch (value->kind) {
     case ValueString:
         int label = self->string++;
-        self->write_fn(".data s%d .string \"%.*s\"", label, STRING_FMT_ARGS(&value->as.string));
+        self->write_fn(".data s%d .string \"%.*s\\0\"", label, STRING_FMT_ARGS(&value->as.string));
         self->write_fn("dataptr s%d", label);
         break;
     case ValueChar:

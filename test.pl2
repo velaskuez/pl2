@@ -107,16 +107,38 @@ fn ByteArray_push(self *ByteArray, x i8) {
     return;
 }
 
+fn strlen(s *i8) i64 {
+    if s == cast(*i8) 0 {
+        // TODO
+        return cast(i64) 0;
+    }
+
+    let i i64 = 0;
+    // TODO(stack): cmp.b should exist
+    while (s[i] != 0) {
+        i = i + 1;
+    }
+
+    return i;
+}
+
 fn main() void {
-    let buf = new ByteArray;
-    ByteArray_push(buf, 'T');
-    ByteArray_push(buf, 'e');
-    ByteArray_push(buf, 's');
-    ByteArray_push(buf, 't');
-    print(buf.ptr, buf.len);
+    // let buf = new ByteArray;
+    // ByteArray_push(buf, 'T');
+    // ByteArray_push(buf, 'e');
+    // ByteArray_push(buf, 's');
+    // ByteArray_push(buf, 't');
+    // print(buf.ptr, buf.len);
 
     let s = "Hello, World!";
-    print(s, 13);
+
+    // TODO(stack): call should only pop off the arguments
+    // it needs. Maybe this can be accomplished by some sort
+    // of annotation next to the label/call inst. For now, we
+    // can't call functions within an expression as it clears
+    // the stack.
+    let len = strlen(s);
+    print(s, len);
 
     // let c i32 = 3;
     // let b = 4 + a + c + 3;
