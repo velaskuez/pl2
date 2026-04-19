@@ -111,8 +111,8 @@ void check_function(Checker *self, AstFunction *function) {
 
     function->node.type = return_type;
 
-    // TODO: this will be a very simple check for now, but will want to make it
-    // a bit more sophisticated at some point
+    // TODO: this will be a very simple check for now. At some
+    // point we should check for unreachable branches.
     self->current_function_returns = false;
     self->current_function_return_type = return_type;
 
@@ -146,7 +146,6 @@ void check_function(Checker *self, AstFunction *function) {
 
     free_scoped_symbols(self);
 
-    // TODO: Need to check branches too
     if (!self->current_function_returns) {
         report_error(self->report, "%.*s does not return", STRING_FMT_ARGS(&function->name));
         return;
@@ -582,7 +581,7 @@ void check_return(Checker *self, AstExpr *expr) {
     check_expr(self, expr);
     AstNode *expr_node = ast_expr_node(expr);
 
-    if (!type_equal(&self->current_function_return_type, &expr_node->type)) {
+    if (!(expr_node->coercible && type_coerce(&expr_node->type, &self->current_function_return_type)) && !type_equal(&expr_node->type, &self->current_function_return_type)) {
         report_type_mismatch_error(self->report, &self->current_function_return_type, &expr_node->type);
         longjmp(statement_jmp_buf, -1);
     }

@@ -72,8 +72,7 @@ system
 ret.w
 ; unreachable: ")
 
-    // TODO
-    return cast(i32) 0;
+    return 0;
 }
 
 struct ByteArray {
@@ -108,9 +107,10 @@ fn ByteArray_push(self *ByteArray, x i8) {
 }
 
 fn strlen(s *i8) i64 {
+    // TODO: coerce primitive -> pointer
     if s == cast(*i8) 0 {
         // TODO
-        return cast(i64) 0;
+        return 0;
     }
 
     let i i64 = 0;
