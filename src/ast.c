@@ -11,7 +11,7 @@ AstNode *ast_location_node(AstLocation *location) {
     }
 }
 
-// TODO: should this take const AstExpr *? Havi to cast in some places
+// TODO: should this take const AstExpr *? Have to cast in some places
 AstNode *ast_expr_node(AstExpr *expr) {
     switch (expr->kind) {
     case ExprBinaryOp:

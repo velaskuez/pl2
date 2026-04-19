@@ -76,15 +76,29 @@ bool type_equal_array(const TypeArray *t, const TypeArray *u) {
 }
 
 bool type_coerce(const Type *from, const Type *to) {
-    if (from->kind != PrimitiveType || to->kind != PrimitiveType) {
+    switch (from->kind) {
+    case PrimitiveType:
+        switch (to->kind) {
+        case PrimitiveType:
+            return (to->as.primitive.kind != PrimitiveVoid &&
+                    from->as.primitive.kind != PrimitiveVoid &&
+                    (from->layout.size <= to->layout.size));
+        default:
+            return false;
+        }
+        break;
+    case PointerType:
+        switch (to->kind) {
+        case PointerType:
+            return (from->as.pointer.type->kind == PrimitiveType &&
+                    from->as.pointer.type->as.primitive.kind == PrimitiveVoid);
+        default:
+            return false;
+        }
+        break;
+    default:
         return false;
     }
-
-    if (from->layout.size == 0 || to->layout.size == 0) {
-        return false;
-    }
-
-    return from->layout.size <= to->layout.size;
 }
 
 bool type_cast(const Type *from, const Type *to) {
