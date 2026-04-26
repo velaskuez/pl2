@@ -9,11 +9,18 @@ char *primitive_type_str[PrimitiveI64+1] = {
     [PrimitiveI64] = "i64"
 };
 
-char *type_kind_str[ArrayType+1] = {
+char *type_kind_str[LiteralNumberType+1] = {
     [PrimitiveType] = "primitive",
     [PointerType] = "pointer",
     [StructType] = "struct",
-    [ArrayType] = "array"
+    [ArrayType] = "array",
+    [LiteralNumberType] = "literal number"
+};
+
+Type literal_number_type = {
+    .kind = LiteralNumberType,
+    // The layout is unknown. Checker should default to
+    // i32 if a concrete type cannot be inferred.
 };
 
 Type void_type = {
@@ -48,6 +55,8 @@ bool type_equal(const Type *t, const Type *u) {
     if (t->kind != u->kind) return false;
 
     switch (t->kind) {
+    case LiteralNumberType:
+        return type_equal_literal_number(t, u);
     case PrimitiveType:
         return type_equal_primitive(&t->as.primitive, &u->as.primitive);
     case PointerType:
@@ -57,6 +66,10 @@ bool type_equal(const Type *t, const Type *u) {
     case ArrayType:
         return type_equal_array(&t->as.array, &u->as.array);
     }
+}
+
+bool type_equal_literal_number(const Type *t, const Type *u) {
+    return t->kind == u->kind;
 }
 
 bool type_equal_primitive(const TypePrimitive *t, const TypePrimitive *u) {
@@ -77,6 +90,16 @@ bool type_equal_array(const TypeArray *t, const TypeArray *u) {
 
 bool type_coerce(const Type *from, const Type *to) {
     switch (from->kind) {
+    case LiteralNumberType:
+        switch (to->kind) {
+            case LiteralNumberType:
+            case PrimitiveType:
+            case PointerType:
+                return true;
+            default:
+                return false;
+        }
+        break;
     case PrimitiveType:
         switch (to->kind) {
         case PrimitiveType:
@@ -103,6 +126,16 @@ bool type_coerce(const Type *from, const Type *to) {
 
 bool type_cast(const Type *from, const Type *to) {
     switch (from->kind) {
+    case LiteralNumberType:
+        switch (to->kind) {
+            case LiteralNumberType:
+            case PrimitiveType:
+            case PointerType:
+                return true;
+            default:
+                return false;
+        }
+        break;
     case PrimitiveType:
         return (to->kind == PrimitiveType && to->as.primitive.kind != PrimitiveVoid) ||
             to->kind == PointerType;
@@ -120,6 +153,7 @@ bool type_cast(const Type *from, const Type *to) {
 
 Type *type_dereference(const Type *from) {
     switch (from->kind) {
+    case LiteralNumberType:
     case PrimitiveType:
     case StructType:
         return nullptr;
@@ -225,6 +259,9 @@ char *type_fmt(const Type *self) {
 
 void type_fprint(FILE *fp, const Type *self) {
     switch (self->kind) {
+    case LiteralNumberType:
+        fprintf(fp, "%s", type_kind_str[self->kind]);
+        break;
     case PrimitiveType:
         fprintf(fp, "%s", primitive_type_str[self->as.primitive.kind]);
         break;

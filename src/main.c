@@ -12,7 +12,7 @@
 #include "check.h"
 
 int main() {
-    int fd = open("test.pl2", O_RDONLY);
+    int fd = open("examples/array.pl2", O_RDONLY);
     if (!fd) {
         panic("could not open test.pl: %s", strerror(errno));
     }
@@ -21,7 +21,7 @@ int main() {
 
     // TODO: something like token_collect_from_file(filename) would be better
     Tokeniser tokeniser = {0};
-    tokeniser.filename = string_from_cstr("test.pl2");
+    tokeniser.filename = string_from_cstr("examples/array.pl2");
     tokeniser.src = src;
     if (token_collect(&tokeniser) < 0) {
         panic("%d:%d: unexpected token", tokeniser.position.line, tokeniser.position.col);

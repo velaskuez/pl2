@@ -386,6 +386,7 @@ void check_binary_op(Checker *self, AstBinaryOp *binary_op) {
             report_type_mismatch_error(self->report, &lhs_node->type, &rhs_node->type);
         }
 
+        // FIXME: should also push down coerced type to sub-expressions
         if (left_coercible) {
             lhs_node->type = rhs_node->type;
         } else {
@@ -473,6 +474,11 @@ void check_value(Checker *self, AstValue *value) {
             type = i64_type;
         }
 
+        // TODO: for this to work:
+        //  - expression checking should push down coerced types to sub-expressions
+        //  - let should assign a default type to literal-only expressions
+        // type = literal_number_type;
+
         break;
     }
 
@@ -528,6 +534,13 @@ void check_new(Checker *self, AstNew *new) {
 void check_cast(Checker *self, AstCast *cast) {
     cast->node.type = check_type_expr(self, cast->type_expr, statement_jmp_buf);
     check_expr(self, cast->expr);
+
+    // TODO: we should check if we can coerce first,
+    // because that will be a no-op
+    // type_coerce might not be suitable actually
+    // since eg only *void can be coerced to any
+    // other pointer types, but a cast should be
+    // a no-op regardless of pointer type
 
     Type cast_from = ast_expr_node(cast->expr)->type;
     if (!type_cast(&cast_from, &cast->node.type)) {

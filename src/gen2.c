@@ -677,6 +677,9 @@ i32 next_local(Generator *self, const AstNode *node) {
     case ArrayType:
         self->local += 2;
         break;
+    case LiteralNumberType:
+        assert(false);
+        break;
     }
 
     return local;
@@ -705,6 +708,9 @@ char *op_ext(Generator *self, const AstNode *node) {
     case PointerType:
     case ArrayType:
         return ".d";
+    case LiteralNumberType:
+        assert(false);
+        break;
     }
 }
 
@@ -727,5 +733,8 @@ char *ret_ext(Generator *self, const AstNode *node) {
     case PointerType:
     case ArrayType:
         return ".d";
+    case LiteralNumberType:
+        assert(false);
+        break;
     }
 }
