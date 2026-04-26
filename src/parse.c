@@ -495,8 +495,6 @@ AstOutput parse_output(Parser *self) {
         return output; // unreachable
     }
 
-    output.target = expect(self, TokenIdent).value;
-
     expect(self, TokenLParen);
     output.contents = expect(self, TokenString).value;
     expect(self, TokenRParen);

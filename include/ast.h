@@ -263,7 +263,6 @@ typedef struct {
 } AstAccess;
 
 typedef struct {
-    String target;
     String contents;
 } AstOutput;
 
