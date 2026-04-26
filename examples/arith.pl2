@@ -1,0 +1,10 @@
+fn main() void {
+    let b i32 = 1;
+    // let a = 1 + b + 1 + 2 + 3;
+
+
+    if b == (1 + 2) {
+
+    }
+    return;
+}

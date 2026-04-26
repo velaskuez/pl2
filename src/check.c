@@ -386,6 +386,7 @@ void check_binary_op(Checker *self, AstBinaryOp *binary_op) {
             report_type_mismatch_error(self->report, &lhs_node->type, &rhs_node->type);
         }
 
+        // FIXME: should also push down coerced type to sub-expressions
         if (left_coercible) {
             lhs_node->type = rhs_node->type;
         } else {
@@ -472,6 +473,11 @@ void check_value(Checker *self, AstValue *value) {
         } else {
             type = i64_type;
         }
+
+        // TODO: for this to work:
+        //  - expression checking should push down coerced types to sub-expressions
+        //  - let should assign a default type to literal-only expressions
+        // type = literal_number_type;
 
         break;
     }

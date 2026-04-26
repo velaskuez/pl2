@@ -9,13 +9,14 @@
 typedef struct Type Type;
 
 typedef enum {
-    PrimitiveType, // coercible, castable -> primitive
-    PointerType, // castable -> pointer, array, primitive
-    StructType, // concrete
-    ArrayType  // castable -> pointer
+    PrimitiveType,
+    PointerType,
+    StructType,
+    ArrayType,
+    LiteralNumberType
 } TypeKind;
 
-char *type_kind_str[ArrayType+1];
+char *type_kind_str[LiteralNumberType+1];
 
 typedef struct {
     u32 size;
@@ -76,9 +77,10 @@ typedef struct {
     Type *items;
 } Types;
 
-Type void_type, i8_type, i32_type, i64_type;
+Type void_type, i8_type, i32_type, i64_type, literal_number_type;
 
 bool type_equal(const Type *t, const Type *u);
+bool type_equal_literal_number(const Type *t, const Type *u);
 bool type_equal_primitive(const TypePrimitive *t, const TypePrimitive *u);
 bool type_equal_pointer(const TypePointer *t, const TypePointer *u);
 bool type_equal_struct(const TypeStruct *t, const TypeStruct *u);

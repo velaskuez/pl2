@@ -498,6 +498,7 @@ void gen_cast(Generator *self, const AstCast *cast) {
             || (from_type.kind == ArrayType && to_type.kind == PointerType)
             || (from_type.kind == ArrayType && to_type.kind == PointerType)
             || (from_type.kind == ArrayType && to_type.kind == ArrayType)) {
+        // TODO: number literals -> pointer should also be a no-op
         // No-op
         return;
     }
@@ -677,6 +678,9 @@ i32 next_local(Generator *self, const AstNode *node) {
     case ArrayType:
         self->local += 2;
         break;
+    case LiteralNumberType:
+        assert(false);
+        break;
     }
 
     return local;
@@ -705,6 +709,9 @@ char *op_ext(Generator *self, const AstNode *node) {
     case PointerType:
     case ArrayType:
         return ".d";
+    case LiteralNumberType:
+        assert(false);
+        break;
     }
 }
 
@@ -727,5 +734,8 @@ char *ret_ext(Generator *self, const AstNode *node) {
     case PointerType:
     case ArrayType:
         return ".d";
+    case LiteralNumberType:
+        assert(false);
+        break;
     }
 }
