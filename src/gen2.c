@@ -79,11 +79,13 @@ static void gen_compound_ident(Generator *self, const AstCompoundIdent *compound
 static void gen_call(Generator *self, const AstCall *call);
 static void gen_new(Generator *self, const AstNew *new);
 static void gen_cast(Generator *self, const AstCast *cast);
+static void gen_access(Generator *self, const AstAccess *access);
 
 jmp_buf fail_buf;
 
 static i32 next_local(Generator *self, const AstNode *node);
 static char *op_ext(Generator *self, const AstNode *node);
+static char *op_ext_type(Generator *self, const Type *type);
 static char *ret_ext(Generator *self, const AstNode *node);
 
 void gen_init(Generator *self, Report *report) {
@@ -267,7 +269,7 @@ void gen_location_index(Generator *self, const AstIndex *index) {
     assert(local != -1);
 
     self->write_fn("load.d %d", local);
-    gen_expr(self, &index->expr);
+    gen_expr(self, index->expr);
     self->write_fn("push.d %d", index->node.type.layout.size);
     self->write_fn("mul.d");
 
@@ -372,6 +374,9 @@ void gen_expr(Generator *self, const AstExpr *expr) {
     case ExprCast:
         gen_cast(self, &expr->as.cast);
         break;
+    case ExprAccess:
+        gen_access(self, &expr->as.access);
+        break;
     }
 }
 
@@ -391,27 +396,6 @@ void gen_comparison_op(Generator *self, const char *ext, const char *jmp_ext) {
 void gen_binary_op(Generator *self, const AstBinaryOp *binary_op) {
     const AstNode *node = &binary_op->node;
     AstNode *lhs_node = ast_expr_node(binary_op->left);
-
-    // TODO: The same code for a compound identifier location can be re-used for a
-    // compound identifier expression, the only difference being the former will do
-    // an aload and the latter will do an astore. Compound identifiers could have been
-    // parsed as a binary operation, but they weren't and now code reuse is easy. It would
-    // be worth reusing the index location type too, but will need tweaking to
-    // parse a list of expressions (all of which should resolve/coerce to i64)
-    if (binary_op->op == BinaryOpIndex) {
-        // LHS contains the pointer/array
-        gen_expr(self, binary_op->left);
-
-        // RHS contains an I64 index (checked by check.c)
-        gen_expr(self, binary_op->right);
-
-        // binary_op contains the dereferenced type, so we use the
-        // layout from that
-        self->write_fn("push.d %d", node->type.layout.size);
-        self->write_fn("mul.d");
-        self->write_fn("aload%s", op_ext(self, node));
-        return;
-    }
 
     gen_expr(self, binary_op->left);
     gen_expr(self, binary_op->right);
@@ -466,6 +450,9 @@ void gen_binary_op(Generator *self, const AstBinaryOp *binary_op) {
         panic("unimplemented");
 		break;
     case BinaryOpIndex:
+        panic("unreachable");
+		break;
+    case BinaryOpAccess:
         panic("unreachable");
 		break;
     }
@@ -546,6 +533,116 @@ void gen_cast(Generator *self, const AstCast *cast) {
     }
 }
 
+void gen_access(Generator *self, const AstAccess *access) {
+    Type resolved_type = access->node.type;
+    if (resolved_type.kind == StructType) {
+        report_error(self->report, "attempt to generate stack for struct");
+        longjmp(fail_buf, -1);
+    }
+
+    assert(access->node.type.kind != StructType); // This should have been caught out earlier
+
+    // Load the base value
+    const Type *base_type = &access->base.node.type;
+    i32 local = find_variable(self->variables, &access->base.name);
+    assert(local >= 0);
+    self->write_fn("load%s %d", op_ext_type(self, base_type), local);
+
+    size_t i = 0;
+    foreach(access_field, &access->fields) {
+        switch (access_field->kind) {
+        case IdentField:
+            AstIdent ident = access_field->as.ident;
+
+            // Only allowing one level of automatic dereferencing
+            if (base_type->kind != StructType) {
+                base_type = type_dereference(base_type);
+                assert(base_type != nullptr && base_type->kind == StructType);
+            }
+
+            TypeStructField *field = struct_find_field(&base_type->as.struct_, &ident.name);
+            assert(field != nullptr);
+            assert(field->type->kind == ident.node.type.kind);
+
+            switch (field->type->kind) {
+            case PointerType:
+            case ArrayType:
+                self->write_fn("push.d %d", field->offset);
+
+                if (i == access->fields.len-1) {
+                    // Last field - follow with typed aload to
+                    // avoid the following dereference
+                    break;
+                }
+
+                // Since this is not the last field, it must
+                // point to a struct, array, or pointer
+                if (base_type->kind != StructType) {
+                    Type *type = type_dereference(field->type);
+                    assert(type != nullptr &&
+                            (type->kind == StructType || type->kind == PointerType || type->kind == ArrayType));
+                }
+
+                // aload with the pushed offset to get the base pointer of the field's allocation
+                self->write_fn("aload.d");
+
+                // base_type = type;
+                base_type = field->type;
+
+                break;
+            case StructType:
+                // TODO: it would be nice to squash successive push
+                // instructions into one
+                self->write_fn("push.d %d", field->offset);
+                base_type = field->type;
+                break;
+            case PrimitiveType:
+                assert(i == access->fields.len-1);
+                self->write_fn("push.d %d", field->offset);
+                break;
+            case LiteralNumberType:
+                panic("unimplemented");
+                break;
+            }
+
+            break;
+        case IndexField:
+            AstExpr *index = access_field->as.index;
+
+            // The pointer should already be on the stack
+            // so we just need to generate the index expression
+            // and aload
+            gen_expr(self, index);
+
+            base_type = type_dereference(base_type);
+            assert(base_type != nullptr);
+
+            self->write_fn("push.d %d", base_type->layout.size);
+            self->write_fn("mul.d");
+
+
+            // There's a chance that the dereferenced type
+            // is a struct, which we can't load onto the
+            // stack. In this case, we leave the offset
+            // on the stack. There will be following
+            // iteration which will dereference it, as
+            // asserted earlier that the resolved type is not
+            // a struct.
+            if (base_type->kind != StructType) {
+                self->write_fn("aload%s", op_ext_type(self, base_type));
+            }
+
+            break;
+        }
+
+        i++;
+    }
+
+    self->write_fn("aload%s", op_ext(self, &access->node));
+
+    return;
+}
+
 void gen_unary_op(Generator *self, const AstUnaryOp *unary_op) {
     switch (unary_op->op) {
     case UnaryOpSizeOf:
@@ -608,7 +705,7 @@ void gen_compound_ident(Generator *self, const AstCompoundIdent *compound_ident)
             self->write_fn("push.d %d", field->offset);
 
             if (i == compound_ident->idents.len-1) {
-                // Last field - follow with astore
+                // Last field - follow with aload
                 break;
             }
 
@@ -694,6 +791,36 @@ char *op_ext(Generator *self, const AstNode *node) {
         break;
     case PrimitiveType:
         switch (node->type.as.primitive.kind) {
+        case PrimitiveVoid:
+            report_error(self->report, "cannot use void operands");
+            longjmp(fail_buf, -1);
+            break;
+        case PrimitiveI8:
+            return ".b";
+        case PrimitiveI32:
+            return ".w";
+        case PrimitiveI64:
+            return ".d";
+        }
+        break;
+    case PointerType:
+    case ArrayType:
+        return ".d";
+    case LiteralNumberType:
+        assert(false);
+        break;
+    }
+}
+
+// TODO: replace op_ext with this
+char *op_ext_type(Generator *self, const Type *type) {
+    switch (type->kind) {
+    case StructType:
+        report_error(self->report, "cannot use structs as operands in stack - access individual fields instead");
+        longjmp(fail_buf, -1);
+        break;
+    case PrimitiveType:
+        switch (type->as.primitive.kind) {
         case PrimitiveVoid:
             report_error(self->report, "cannot use void operands");
             longjmp(fail_buf, -1);

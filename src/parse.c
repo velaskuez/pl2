@@ -10,6 +10,7 @@
 #include "util.h"
 
 static int infix_prec[] = {
+    [BinaryOpAccess] = 5,
     [BinaryOpIndex] = 10,
     [BinaryOpOr] = 20,
     [BinaryOpAnd] = 30,
@@ -98,6 +99,7 @@ char *binary_op_str[] = {
     [BinaryOpBitAnd] = "&",
     [BinaryOpBitOr] = "|",
     [BinaryOpIndex] = "[]",
+    [BinaryOpAccess] = ".",
 };
 
 char *unary_op_str[] = {
@@ -270,6 +272,36 @@ AstCast parse_cast(Parser *self) {
     return cast;
 }
 
+AstAccessField parse_access_field(Parser *self) {
+    AstAccessField access_field = {0};
+
+    if (eat(self, TokenLBrack)) {
+        access_field.kind = IndexField;
+        access_field.as.index = box(parse_expr(self, 0));
+        expect(self, TokenRBrack);
+    } else if (eat(self, TokenDot)) {
+        access_field.kind = IdentField;
+        access_field.as.ident = parse_ident(self);
+    } else {
+        report_unexpected_token_error(self);
+    }
+
+    return access_field;
+}
+
+AstAccess parse_access(Parser *self) {
+    AstAccess access = {0};
+    access.node = make_ast_node(self);
+
+    access.base = parse_ident(self);
+
+    while (at(self, TokenDot) || at(self, TokenLBrack)) {
+        append(&access.fields, parse_access_field(self));
+    }
+
+    return access;
+}
+
 AstExpr parse_prefix_expr(Parser *self) {
     AstExpr expr = {0};
 
@@ -292,8 +324,11 @@ AstExpr parse_prefix_expr(Parser *self) {
         expr.kind = ExprCall;
         expr.as.call = parse_call(self);
     } else if (at(self, TokenIdent) && nth(self, 1).kind == TokenDot) {
-        expr.kind = ExprCompoundIdent;
-        expr.as.compound_ident = parse_compound_ident(self);
+        expr.kind = ExprAccess;
+        expr.as.access = parse_access(self);
+    } else if (at(self, TokenIdent) && nth(self, 1).kind == TokenLBrack) {
+        expr.kind = ExprAccess;
+        expr.as.access = parse_access(self);
     } else if (at(self, TokenIdent)) {
         expr.kind = ExprIdent;
         expr.as.ident = parse_ident(self);
@@ -324,6 +359,7 @@ BinaryOp parse_binary_op(Parser *self) {
         if (eat(self, TokenBar)) return BinaryOpOr;
         return BinaryOpBitOr;
     } else if (eat(self, TokenLBrack)) {
+        panic("unreachable"); // TODO: tidy up
         return BinaryOpIndex;
     } else if (eat(self, TokenPlus)) {
         return BinaryOpAdd;
@@ -333,6 +369,9 @@ BinaryOp parse_binary_op(Parser *self) {
         return BinaryOpDiv;
     } else if (eat(self, TokenStar)) {
         return BinaryOpMul;
+    } else if (eat(self, TokenDot)) {
+        panic("unreachable"); // TODO: tidy up
+        return BinaryOpAccess;
     }
 
     return 0;
@@ -510,7 +549,7 @@ AstIndex parse_index(Parser *self) {
 
     index.ident = parse_ident(self);
     expect(self, TokenLBrack);
-    index.expr = parse_expr(self, 0);
+    index.expr = box(parse_expr(self, 0));
     expect(self, TokenRBrack);
 
     return index;

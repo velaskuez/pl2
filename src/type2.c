@@ -14,7 +14,7 @@ char *type_kind_str[LiteralNumberType+1] = {
     [PointerType] = "pointer",
     [StructType] = "struct",
     [ArrayType] = "array",
-    [LiteralNumberType] = "literal number"
+    [LiteralNumberType] = "literal number" // TODO: 'unknown' would probably be a better name
 };
 
 Type literal_number_type = {

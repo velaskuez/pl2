@@ -29,6 +29,7 @@ static void check_value(Checker *self, AstValue *value);
 static void check_call(Checker *self, AstCall *call);
 static void check_new(Checker *self, AstNew *new);
 static void check_cast(Checker *self, AstCast *cast);
+static void check_access(Checker *self, AstAccess *access);
 static void check_expr(Checker *self, AstExpr *expr);
 static void check_return(Checker *self, AstExpr *expr);
 static void check_if(Checker *self, AstIf *if_);
@@ -259,8 +260,8 @@ void check_index(Checker *self, AstIndex *index) {
     index->node.type = *type;
     index->node.coercible = false;
 
-    check_expr(self, &index->expr);
-    AstNode *expr_node = ast_expr_node(&index->expr);
+    check_expr(self, index->expr);
+    AstNode *expr_node = ast_expr_node(index->expr);
     if (!(expr_node->coercible && type_coerce(&expr_node->type, &i64_type)) && !type_equal(&expr_node->type, &i64_type)) {
         report_error(self->report, "%.*s cannot be indexed by non-i64 type", STRING_FMT_ARGS(&index->ident.name));
         longjmp(statement_jmp_buf, -1);
@@ -352,29 +353,7 @@ void check_binary_op(Checker *self, AstBinaryOp *binary_op) {
     check_expr(self, binary_op->right);
     AstNode *rhs_node = ast_expr_node(binary_op->right);
 
-    // Index - LHS must be indexable, RHS must be i64
-    if (binary_op->op == BinaryOpIndex) {
-        if (!(rhs_node->coercible && type_coerce(&rhs_node->type, &i64_type)) && !type_equal(&rhs_node->type, &i64_type)) {
-            report_error(self->report, "<type> cannot be indexed by non-i64 type");
-            longjmp(statement_jmp_buf, -1);
-        }
-
-        rhs_node->type = i64_type;
-        rhs_node->coercible = false;
-
-        Type *type = type_dereference(&lhs_node->type);
-        if (type == nullptr) {
-            report_error(self->report, "<type> cannot be indexed");
-            longjmp(statement_jmp_buf, -1);
-        }
-
-        binary_op->node.type = *type;
-        binary_op->node.coercible = false;
-
-        return;
-    }
-
-    // For all other operations, operands must be comparable
+    // Operands must be comparable
     if (!type_equal(&lhs_node->type, &rhs_node->type)) {
         bool left_coercible = lhs_node->coercible && type_coerce(&lhs_node->type, &rhs_node->type);
         bool right_coercible = rhs_node->coercible && type_coerce(&rhs_node->type, &lhs_node->type);
@@ -419,7 +398,10 @@ void check_binary_op(Checker *self, AstBinaryOp *binary_op) {
         panic("unimplemented");
         break;
     case BinaryOpIndex:
-        panic("unreachable");
+        panic("unreachable"); // TODO: tidy up
+        break;
+    case BinaryOpAccess:
+        panic("unreachable"); // TODO: tidy up
         break;
     }
 
@@ -543,6 +525,82 @@ void check_cast(Checker *self, AstCast *cast) {
     }
 }
 
+void check_access(Checker *self, AstAccess *access) {
+    Symbol *symbol = symbol_find_with_kind(self->symbols, &access->base.name, VariableSymbol);
+    if (symbol == nullptr) {
+        report_error(self->report, "unknown identifier %.*s", STRING_FMT_ARGS(&access->base.name));
+        longjmp(statement_jmp_buf, -1);
+    }
+
+    Type base_type = symbol->type;
+    if (base_type.kind != StructType && base_type.kind != PointerType && base_type.kind != ArrayType) {
+        report_error(self->report, "cannot access fields of %.*s", STRING_FMT_ARGS(&access->base.name));
+        longjmp(statement_jmp_buf, -1);
+    }
+
+    access->base.node.type = base_type;
+    access->base.node.coercible = false;
+
+    assert(access->fields.len > 0);
+    foreach(access_field, &access->fields) {
+        switch (access_field->kind) {
+        case IdentField:
+            if (base_type.kind == PointerType) {
+                Type *dereferenced_type = type_dereference(&base_type);
+                assert(dereferenced_type != nullptr);
+                base_type = *dereferenced_type;
+            }
+
+            if (base_type.kind != StructType) {
+                report_error(self->report, "cannot access field - not a struct");
+                longjmp(statement_jmp_buf, -1);
+            }
+
+            TypeStructField* field = struct_find_field(&base_type.as.struct_, &access_field->as.ident.name);
+            if (field == nullptr) {
+                report_error(self->report, "%.*s is not a field in %.*s",
+                        STRING_FMT_ARGS(&access_field->as.ident.name),
+                        STRING_FMT_ARGS(&base_type.as.struct_.name));
+                longjmp(statement_jmp_buf, -1);
+            }
+
+            access_field->as.ident.node.type = *field->type;
+            access_field->as.ident.node.coercible = false;
+
+            base_type = *field->type;
+
+            break;
+        case IndexField:
+            // Base type can be a pointer or an array
+            Type *dereferenced_type = type_dereference(&base_type);
+            if (dereferenced_type == nullptr) {
+                report_error(self->report, "cannot index <type>");
+                longjmp(statement_jmp_buf, -1);
+            }
+
+            base_type = *dereferenced_type;
+
+            // Index can be any expression - it must coerce to i64
+            check_expr(self, access_field->as.index);
+
+            AstNode *expr_node = ast_expr_node(access_field->as.index);
+
+            if (!(expr_node->coercible && type_coerce(&expr_node->type, &i64_type)) && !type_equal(&expr_node->type, &i64_type)) {
+                report_error(self->report, "<type> cannot be indexed by <type>");
+                longjmp(statement_jmp_buf, -1);
+            }
+
+            expr_node->type = i64_type;
+            expr_node->coercible = false;
+
+            break;
+        }
+    }
+
+    access->node.type = base_type;
+    access->node.coercible = false;
+}
+
 void check_expr(Checker *self, AstExpr *expr) {
     switch (expr->kind) {
     case ExprBinaryOp:
@@ -568,6 +626,9 @@ void check_expr(Checker *self, AstExpr *expr) {
         break;
     case ExprCast:
         check_cast(self, &expr->as.cast);
+        break;
+    case ExprAccess:
+        check_access(self, &expr->as.access);
         break;
     }
 }

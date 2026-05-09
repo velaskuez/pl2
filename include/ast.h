@@ -103,9 +103,10 @@ typedef enum {
     BinaryOpBitAnd,
     BinaryOpBitOr,
     BinaryOpIndex,
+    BinaryOpAccess
 } BinaryOp;
 
-char *binary_op_str[BinaryOpIndex+1];
+char *binary_op_str[BinaryOpAccess+1];
 
 typedef enum {
     UnaryOpSizeOf,
@@ -124,7 +125,8 @@ typedef enum {
     ExprCompoundIdent,
     ExprCall,
     ExprNew,
-    ExprCast
+    ExprCast,
+    ExprAccess
 } ExprKind;
 
 typedef struct {
@@ -184,6 +186,38 @@ typedef struct {
     AstExpr *expr;
 } AstCast;
 
+typedef struct {
+    AstNode node;
+
+    AstIdent ident;
+    AstExpr *expr;
+} AstIndex;
+
+typedef enum {
+    IdentField,
+    IndexField
+} AstAccessFieldKind;
+
+typedef struct {
+    AstAccessFieldKind kind;
+    union {
+        AstIdent ident;
+        AstExpr *index;
+    } as;
+} AstAccessField;
+
+typedef struct {
+    size_t len, cap;
+    AstAccessField *items;
+} AstAccessFields;
+
+typedef struct {
+    AstNode node;
+
+    AstIdent base;
+    AstAccessFields fields;
+} AstAccess;
+
 struct AstExpr {
     ExprKind kind;
     union {
@@ -191,10 +225,11 @@ struct AstExpr {
         AstUnaryOp unary_op;
         AstValue value;
         AstIdent ident;
-        AstCompoundIdent compound_ident; // TODO: move to binary op
+        AstCompoundIdent compound_ident; // TODO: remove
         AstCall call;
         AstNew new;
         AstCast cast;
+        AstAccess access;
     } as;
 };
 
@@ -211,13 +246,6 @@ typedef enum {
     LocationCompoundIdent,
     LocationIndex
 } LocationKind;
-
-typedef struct {
-    AstNode node;
-
-    AstIdent ident;
-    AstExpr expr;
-} AstIndex;
 
 // TODO: use binary_op-like expression with `.` and `[]` as the only operators
 // `[]` has greater precedence than `.`
@@ -248,19 +276,6 @@ typedef struct {
     AstExpr condition;
     AstBlock block;
 } AstWhile;
-
-// TODO: expr and location could share something like this. Location can also
-// be one or more dereferences
-typedef enum {
-    AccessOpMember,
-    AccessOpIndex,
-} AccessOp;
-
-typedef struct {
-    AccessOp op;
-    AstExpr *lhs;
-    AstExpr *rhs;
-} AstAccess;
 
 typedef struct {
     String contents;

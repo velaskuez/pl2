@@ -142,7 +142,7 @@ void ast_fmt_return(Writer *writer, const AstExpr *expr, int indent) {
 void ast_fmt_index(Writer *writer, const AstIndex *index) {
     writer_append_string(writer, &index->ident.name);
     writer_append_cstr(writer, "[");
-    ast_fmt_expr(writer, &index->expr, 0);
+    ast_fmt_expr(writer, index->expr, 0);
     writer_append_cstr(writer, "]");
 }
 
@@ -230,6 +230,9 @@ void ast_fmt_expr(Writer *writer, const AstExpr *expr, int indent) {
         break;
     case ExprCast:
         ast_fmt_cast(writer, &expr->as.cast);
+        break;
+    case ExprAccess:
+        // TODO
         break;
     }
 }
