@@ -8,6 +8,8 @@ AstNode *ast_location_node(AstLocation *location) {
         return &location->as.compound_ident.node;
     case LocationIndex:
         return &location->as.index.node;
+    case LocationAccess:
+        return &location->as.access.node;
     }
 }
 

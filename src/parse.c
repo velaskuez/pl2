@@ -531,7 +531,6 @@ AstOutput parse_output(Parser *self) {
     if (string_cstr_cmp(&directive, "output") != 0) {
         self->position--;
         report_unexpected_token_error(self);
-        return output; // unreachable
     }
 
     expect(self, TokenLParen);
@@ -562,12 +561,19 @@ AstLocation parse_location(Parser *self) {
         location.kind = LocationIdent;
         location.as.ident = parse_ident(self);
     } else if (nth(self, 1).kind == TokenDot) {
-        location.kind = LocationCompoundIdent;
-        location.as.compound_ident = parse_compound_ident(self);
+        location.kind = LocationAccess;
+        location.as.access = parse_access(self);
     } else if (nth(self, 1).kind == TokenLBrack) {
-        location.kind = LocationIndex;
-        location.as.index = parse_index(self);
+        location.kind = LocationAccess;
+        location.as.access = parse_access(self);
     }
+    // Note: no else branch here - parse_statement
+    // depends on the location kind possibly being
+    // 0 to decide to parse an expression instead
+    // of an assignment.
+    // TODO: It would be more reliable to check if
+    // we're at a single = token instead, since
+    // locations and expressions can parse alike.
 
     return location;
 }

@@ -62,6 +62,7 @@ static void gen_location(Generator *self, const AstLocation *location);
 static void gen_location_ident(Generator *self, const AstIdent *ident);
 static void gen_location_compound_ident(Generator *self, const AstCompoundIdent *compound_ident);
 static void gen_location_index(Generator *self, const AstIndex *index);
+static void gen_location_access(Generator *self, const AstAccess *access);
 static void gen_assign(Generator *self, const AstAssign *assign);
 static void gen_let(Generator *self, const AstLet *let);
 static void gen_return(Generator *self, const AstExpr *return_);
@@ -80,6 +81,7 @@ static void gen_call(Generator *self, const AstCall *call);
 static void gen_new(Generator *self, const AstNew *new);
 static void gen_cast(Generator *self, const AstCast *cast);
 static void gen_access(Generator *self, const AstAccess *access);
+static void gen_expr_access(Generator *self, const AstAccess *access);
 
 jmp_buf fail_buf;
 
@@ -185,6 +187,9 @@ void gen_location(Generator *self, const AstLocation *location) {
     case LocationIndex:
         gen_location_index(self, &location->as.index);
 		break;
+    case LocationAccess:
+        gen_location_access(self, &location->as.access);
+        break;
     }
 }
 
@@ -277,6 +282,11 @@ void gen_location_index(Generator *self, const AstIndex *index) {
     // is aload/astore. When expressions are refactored to use
     // AstIndex rather than binary op index, reuse the code.
     self->write_fn("astore%s", op_ext(self, &index->node));
+}
+
+void gen_location_access(Generator *self, const AstAccess *access) {
+    gen_access(self, access);
+    self->write_fn("astore%s", op_ext(self, &access->node));
 }
 
 void gen_assign(Generator *self, const AstAssign *assign) {
@@ -375,7 +385,7 @@ void gen_expr(Generator *self, const AstExpr *expr) {
         gen_cast(self, &expr->as.cast);
         break;
     case ExprAccess:
-        gen_access(self, &expr->as.access);
+        gen_expr_access(self, &expr->as.access);
         break;
     }
 }
@@ -640,9 +650,12 @@ void gen_access(Generator *self, const AstAccess *access) {
         i++;
     }
 
-    self->write_fn("aload%s", op_ext(self, &access->node));
-
     return;
+}
+
+void gen_expr_access(Generator *self, const AstAccess *access) {
+    gen_access(self, access);
+    self->write_fn("aload%s", op_ext(self, &access->node));
 }
 
 void gen_unary_op(Generator *self, const AstUnaryOp *unary_op) {

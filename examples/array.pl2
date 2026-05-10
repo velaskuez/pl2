@@ -43,9 +43,7 @@ fn ByteArray_push(self *ByteArray, x i8) {
         self.ptr = ptr;
     }
 
-    // TODO
-    let ptr = self.ptr;
-    ptr[self.len] = x;
+    self.ptr[self.len] = x;
 
     self.len = self.len + 1;
 

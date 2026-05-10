@@ -243,13 +243,10 @@ typedef struct {
 
 typedef enum {
     LocationIdent = 1,
-    LocationCompoundIdent,
-    LocationIndex
+    LocationCompoundIdent, // remove
+    LocationIndex, // remove
+    LocationAccess,
 } LocationKind;
-
-// TODO: use binary_op-like expression with `.` and `[]` as the only operators
-// `[]` has greater precedence than `.`
-// So variants will be AstIdent and AstAccess
 
 typedef struct {
     LocationKind kind;
@@ -257,6 +254,7 @@ typedef struct {
         AstIdent ident;
         AstCompoundIdent compound_ident;
         AstIndex index;
+        AstAccess access;
     } as;
 } AstLocation;
 

@@ -281,6 +281,9 @@ void check_location(Checker *self, AstLocation *location) {
     case LocationIndex:
         check_index(self, &location->as.index);
         break;
+    case LocationAccess:
+        check_access(self, &location->as.access);
+        break;
     }
 }
 

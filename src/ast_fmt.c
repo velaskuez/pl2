@@ -150,13 +150,16 @@ void ast_fmt_location(Writer *writer, const AstLocation *location) {
     switch (location->kind) {
     case LocationIdent:
         writer_append_string(writer, &location->as.ident.name);
-    break;
+        break;
     case LocationCompoundIdent:
         ast_fmt_compound_ident(writer, &location->as.compound_ident);
-    break;
+        break;
     case LocationIndex:
         ast_fmt_index(writer, &location->as.index);
-    break;
+        break;
+    case LocationAccess:
+        // TODO
+        break;
     }
 }
 
