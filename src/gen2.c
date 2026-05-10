@@ -60,8 +60,6 @@ static void gen_statements(Generator *self, const AstStatements *statements);
 static void gen_statement(Generator *self, const AstStatement *statement);
 static void gen_location(Generator *self, const AstLocation *location);
 static void gen_location_ident(Generator *self, const AstIdent *ident);
-static void gen_location_compound_ident(Generator *self, const AstCompoundIdent *compound_ident);
-static void gen_location_index(Generator *self, const AstIndex *index);
 static void gen_location_access(Generator *self, const AstAccess *access);
 static void gen_assign(Generator *self, const AstAssign *assign);
 static void gen_let(Generator *self, const AstLet *let);
@@ -76,7 +74,6 @@ static void gen_comparison_op(Generator *self, const char *op_ext, const char *j
 static void gen_unary_op(Generator *self, const AstUnaryOp *unary_op);
 static void gen_value(Generator *self, const AstValue *value);
 static void gen_ident(Generator *self, const AstIdent *ident);
-static void gen_compound_ident(Generator *self, const AstCompoundIdent *compound_ident);
 static void gen_call(Generator *self, const AstCall *call);
 static void gen_new(Generator *self, const AstNew *new);
 static void gen_cast(Generator *self, const AstCast *cast);
@@ -181,12 +178,6 @@ void gen_location(Generator *self, const AstLocation *location) {
     case LocationIdent:
         gen_location_ident(self, &location->as.ident);
 		break;
-    case LocationCompoundIdent:
-        gen_location_compound_ident(self, &location->as.compound_ident);
-		break;
-    case LocationIndex:
-        gen_location_index(self, &location->as.index);
-		break;
     case LocationAccess:
         gen_location_access(self, &location->as.access);
         break;
@@ -198,90 +189,6 @@ void gen_location_ident(Generator *self, const AstIdent *ident) {
     assert(local != -1);
 
     self->write_fn("store%s %d", op_ext(self, &ident->node), local);
-}
-
-void gen_location_compound_ident(Generator *self, const AstCompoundIdent *compound_ident) {
-    Type resolved_type = compound_ident->node.type;
-    if (resolved_type.kind != PrimitiveType && resolved_type.kind != PointerType) {
-        report_error(self->report, "type of compound identifier must be either primitive or pointer, have %s",
-                type_kind_str[resolved_type.kind]);
-        longjmp(fail_buf, -1);
-    }
-
-    AstIdent base_ident = compound_ident->idents.items[0];
-    i32 local = find_variable(self->variables, &base_ident.name);
-    assert(local >= 0);
-
-    self->write_fn("load%s %d", op_ext(self, &base_ident.node), local);
-
-    assert(base_ident.node.type.kind == PointerType);
-    Type *base_type = type_dereference(&base_ident.node.type);
-
-    size_t i = 1;
-    for (AstIdent *ident = compound_ident->idents.items+i;
-                   ident < compound_ident->idents.items + compound_ident->idents.len;
-                   ident++, i++) {
-        assert(base_type != nullptr && base_type->kind == StructType);
-
-        TypeStructField *field = struct_find_field(&base_type->as.struct_, &ident->name);
-        assert(field != nullptr);
-        assert(field->type->kind == ident->node.type.kind);
-
-        if (field->type->kind == PointerType) {
-            self->write_fn("push.d %d", field->offset);
-
-            if (i == compound_ident->idents.len-1) {
-                // Last field - follow with astore
-                break;
-            }
-
-            // Since it's not the last field, it must point to a struct
-            // This will change once we support expressions like a[0].b
-            Type *type = type_dereference(field->type);
-            assert(type != nullptr && type->kind == StructType);
-
-            // aload with the pushed offset to get the base pointer of the field's allocation
-            self->write_fn("aload.d");
-
-            base_type = type;
-
-            continue;
-        } else if (field->type->kind == StructType) {
-            self->write_fn("push.d %d", field->offset);
-
-            base_type = field->type;
-
-            continue;
-        } else if (field->type->kind == PrimitiveType) {
-            assert(i == compound_ident->idents.len-1);
-
-            self->write_fn("push.d %d", field->offset);
-
-            break;
-        } else {
-            panic("unimplemented: gen compound identifier for %s fields", type_kind_str[field->type->kind]);
-        }
-    }
-
-    self->write_fn("astore%s", op_ext(self, &compound_ident->node));
-}
-
-void gen_location_index(Generator *self, const AstIndex *index) {
-    // Identifier type will be either pointer/array
-    // Expression/location type will be the dereferenced type
-
-    i32 local = find_variable(self->variables, &index->ident.name);
-    assert(local != -1);
-
-    self->write_fn("load.d %d", local);
-    gen_expr(self, index->expr);
-    self->write_fn("push.d %d", index->node.type.layout.size);
-    self->write_fn("mul.d");
-
-    // TODO: the only difference between expression and location
-    // is aload/astore. When expressions are refactored to use
-    // AstIndex rather than binary op index, reuse the code.
-    self->write_fn("astore%s", op_ext(self, &index->node));
 }
 
 void gen_location_access(Generator *self, const AstAccess *access) {
@@ -372,9 +279,6 @@ void gen_expr(Generator *self, const AstExpr *expr) {
     case ExprIdent:
         gen_ident(self, &expr->as.ident);
 		break;
-    case ExprCompoundIdent:
-        gen_compound_ident(self, &expr->as.compound_ident);
-		break;
     case ExprCall:
         gen_call(self, &expr->as.call);
 		break;
@@ -404,7 +308,6 @@ void gen_comparison_op(Generator *self, const char *ext, const char *jmp_ext) {
 }
 
 void gen_binary_op(Generator *self, const AstBinaryOp *binary_op) {
-    const AstNode *node = &binary_op->node;
     AstNode *lhs_node = ast_expr_node(binary_op->left);
 
     gen_expr(self, binary_op->left);
@@ -458,12 +361,6 @@ void gen_binary_op(Generator *self, const AstBinaryOp *binary_op) {
 		break;
     case BinaryOpBitOr:
         panic("unimplemented");
-		break;
-    case BinaryOpIndex:
-        panic("unreachable");
-		break;
-    case BinaryOpAccess:
-        panic("unreachable");
 		break;
     }
 }
@@ -686,73 +583,6 @@ void gen_ident(Generator *self, const AstIdent *ident) {
     assert(local != -1);
 
     self->write_fn("load%s %d", op_ext(self, &ident->node), local);
-}
-
-// TODO: refactor
-void gen_compound_ident(Generator *self, const AstCompoundIdent *compound_ident) {
-    Type resolved_type = compound_ident->node.type;
-    if (resolved_type.kind != PrimitiveType && resolved_type.kind != PointerType) {
-        report_error(self->report, "type of compound identifier must be either primitive or pointer, have %s",
-                type_kind_str[resolved_type.kind]);
-        longjmp(fail_buf, -1);
-    }
-
-    AstIdent base_ident = compound_ident->idents.items[0];
-    i32 local = find_variable(self->variables, &base_ident.name);
-    assert(local >= 0);
-
-    self->write_fn("load%s %d", op_ext(self, &base_ident.node), local);
-
-    assert(base_ident.node.type.kind == PointerType);
-    Type *base_type = type_dereference(&base_ident.node.type);
-
-    size_t i = 1;
-    for (AstIdent *ident = compound_ident->idents.items+i;
-                   ident < compound_ident->idents.items + compound_ident->idents.len;
-                   ident++, i++) {
-        assert(base_type != nullptr && base_type->kind == StructType);
-
-        TypeStructField *field = struct_find_field(&base_type->as.struct_, &ident->name);
-        assert(field != nullptr);
-        assert(field->type->kind == ident->node.type.kind);
-
-        if (field->type->kind == PointerType) {
-            self->write_fn("push.d %d", field->offset);
-
-            if (i == compound_ident->idents.len-1) {
-                // Last field - follow with aload
-                break;
-            }
-
-            // Since it's not the last field, it must point to a struct
-            // This will change once we support expressions like a[0].b
-            Type *type = type_dereference(field->type);
-            assert(type != nullptr && type->kind == StructType);
-
-            // aload with the pushed offset to get the base pointer of the field's allocation
-            self->write_fn("aload.d");
-
-            base_type = type;
-
-            continue;
-        } else if (field->type->kind == StructType) {
-            self->write_fn("push.d %d", field->offset);
-
-            base_type = field->type;
-
-            continue;
-        } else if (field->type->kind == PrimitiveType) {
-            assert(i == compound_ident->idents.len-1);
-
-            self->write_fn("push.d %d", field->offset);
-
-            break;
-        } else {
-            panic("unimplemented: gen compound identifier for %s fields", type_kind_str[field->type->kind]);
-        }
-    }
-
-    self->write_fn("aload%s", op_ext(self, &compound_ident->node));
 }
 
 void gen_call(Generator *self, const AstCall *call) {

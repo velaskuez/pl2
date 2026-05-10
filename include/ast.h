@@ -26,17 +26,6 @@ typedef struct {
 
 typedef struct {
     size_t len, cap;
-    AstIdent *items;
-} AstIdents;
-
-typedef struct {
-    AstNode node;
-
-    AstIdents idents;
-} AstCompoundIdent;
-
-typedef struct {
-    size_t len, cap;
     AstStatement *items;
 } AstStatements;
 
@@ -101,12 +90,10 @@ typedef enum {
     BinaryOpAnd,
     BinaryOpOr,
     BinaryOpBitAnd,
-    BinaryOpBitOr,
-    BinaryOpIndex,
-    BinaryOpAccess
+    BinaryOpBitOr
 } BinaryOp;
 
-char *binary_op_str[BinaryOpAccess+1];
+char *binary_op_str[BinaryOpBitOr+1];
 
 typedef enum {
     UnaryOpSizeOf,
@@ -122,7 +109,6 @@ typedef enum {
     ExprUnaryOp,
     ExprValue,
     ExprIdent,
-    ExprCompoundIdent,
     ExprCall,
     ExprNew,
     ExprCast,
@@ -186,13 +172,6 @@ typedef struct {
     AstExpr *expr;
 } AstCast;
 
-typedef struct {
-    AstNode node;
-
-    AstIdent ident;
-    AstExpr *expr;
-} AstIndex;
-
 typedef enum {
     IdentField,
     IndexField
@@ -225,7 +204,6 @@ struct AstExpr {
         AstUnaryOp unary_op;
         AstValue value;
         AstIdent ident;
-        AstCompoundIdent compound_ident; // TODO: remove
         AstCall call;
         AstNew new;
         AstCast cast;
@@ -243,8 +221,6 @@ typedef struct {
 
 typedef enum {
     LocationIdent = 1,
-    LocationCompoundIdent, // remove
-    LocationIndex, // remove
     LocationAccess,
 } LocationKind;
 
@@ -252,8 +228,6 @@ typedef struct {
     LocationKind kind;
     union {
         AstIdent ident;
-        AstCompoundIdent compound_ident;
-        AstIndex index;
         AstAccess access;
     } as;
 } AstLocation;

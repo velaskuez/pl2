@@ -139,23 +139,10 @@ void ast_fmt_return(Writer *writer, const AstExpr *expr, int indent) {
     }
 }
 
-void ast_fmt_index(Writer *writer, const AstIndex *index) {
-    writer_append_string(writer, &index->ident.name);
-    writer_append_cstr(writer, "[");
-    ast_fmt_expr(writer, index->expr, 0);
-    writer_append_cstr(writer, "]");
-}
-
 void ast_fmt_location(Writer *writer, const AstLocation *location) {
     switch (location->kind) {
     case LocationIdent:
         writer_append_string(writer, &location->as.ident.name);
-        break;
-    case LocationCompoundIdent:
-        ast_fmt_compound_ident(writer, &location->as.compound_ident);
-        break;
-    case LocationIndex:
-        ast_fmt_index(writer, &location->as.index);
         break;
     case LocationAccess:
         // TODO
@@ -222,9 +209,6 @@ void ast_fmt_expr(Writer *writer, const AstExpr *expr, int indent) {
     case ExprIdent:
         writer_append_string(writer, &expr->as.ident.name);
         break;
-    case ExprCompoundIdent:
-        ast_fmt_compound_ident(writer, &expr->as.compound_ident);
-        break;
     case ExprCall:
         ast_fmt_call(writer, &expr->as.call);
         break;
@@ -263,25 +247,17 @@ void ast_fmt_value(Writer *writer, const AstValue *value) {
 }
 
 void ast_fmt_binary_op(Writer *writer, const AstBinaryOp *binary_op) {
-    if (binary_op->op != BinaryOpIndex) writer_append_cstr(writer, "(");
+    writer_append_cstr(writer, "(");
 
     ast_fmt_expr(writer, binary_op->left, 0);
 
-    if (binary_op->op == BinaryOpIndex) {
-        writer_append_cstr(writer, "[");
-    } else {
-        writer_append_cstr(writer, " ");
-        writer_append_cstr(writer, binary_op_str[binary_op->op]);
-        writer_append_cstr(writer, " ");
-    }
+    writer_append_cstr(writer, " ");
+    writer_append_cstr(writer, binary_op_str[binary_op->op]);
+    writer_append_cstr(writer, " ");
 
     ast_fmt_expr(writer, binary_op->right, 0);
 
-    if (binary_op->op == BinaryOpIndex) {
-        writer_append_cstr(writer, "]");
-    } else {
-        writer_append_cstr(writer, ")");
-    }
+    writer_append_cstr(writer, ")");
 }
 
 void ast_fmt_unary_op(Writer *writer, const AstUnaryOp *unary_op) {
@@ -289,15 +265,6 @@ void ast_fmt_unary_op(Writer *writer, const AstUnaryOp *unary_op) {
     writer_append_cstr(writer, "(");
     ast_fmt_expr(writer, unary_op->expr, 0);
     writer_append_cstr(writer, ")");
-}
-
-void ast_fmt_compound_ident(Writer *writer, const AstCompoundIdent *compound_ident) {
-    char *sep = "";
-    foreach(ident, &compound_ident->idents) {
-        writer_append_cstr(writer, sep);
-        writer_append_string(writer, &ident->name);
-        sep = ".";
-    }
 }
 
 void ast_fmt_call(Writer *writer, const AstCall *call) {

@@ -1,0 +1,43 @@
+struct Test0 {
+    g i32;
+}
+
+struct Test1 {
+    c i32;
+    d i32;
+    e i32;
+    f Test0;
+}
+
+struct Test {
+    a i32;
+    b *Test1;
+}
+
+fn main() {
+    // let array = new [100]Test;
+    // let a = array[0].a;
+
+    // let test = new Test;
+    // let b = test.b.d;
+    // let c = test.b[0].c;
+    // let d = test.b[0].c;
+    // let g = test.b.f.g;
+
+    // let bytes = new [128]i8;
+    // let i i64 = 0;
+    // let t = bytes[i];
+
+    // let m = new *i32;
+    // let t = m[0][1];
+
+
+    // Locations
+    // let test = new Test;
+    // test.a = 33;
+    // test.b = new Test1;
+    // test.b.c = 33;
+    // test.b.f.g = 33;
+
+    return;
+}

@@ -18,8 +18,6 @@ static void check_block(Checker *self, const AstBlock *block);
 static void check_statements(Checker *self, const AstStatements *statements);
 static void check_statement(Checker *self, AstStatement *statement);
 static void check_ident(Checker *self, AstIdent *ident);
-static void check_compound_ident(Checker *self, AstCompoundIdent *compound_ident);
-static void check_index(Checker *self, AstIndex *index);
 static void check_location(Checker *self, AstLocation *location);
 static void check_assign(Checker *self, AstAssign *assign);
 static void check_let(Checker *self, AstLet *let);
@@ -203,83 +201,10 @@ void check_ident(Checker *self, AstIdent *ident) {
     ident->node.coercible = false;
 }
 
-void check_compound_ident(Checker *self, AstCompoundIdent *compound_ident) {
-    assert(compound_ident->idents.len > 1);
-
-    AstIdent *base = &compound_ident->idents.items[0];
-    check_ident(self, base);
-
-    Type base_type = base->node.type;
-
-    for (AstIdent *ident = compound_ident->idents.items+1;
-                   ident < compound_ident->idents.items + compound_ident->idents.len;
-                   ident++) {
-
-        if (base_type.kind == PointerType) {
-            Type *dereferenced_type = type_dereference(&base_type);
-            assert(dereferenced_type != nullptr);
-            base_type = *dereferenced_type;
-        }
-
-        if (base_type.kind != StructType) {
-            report_error(self->report, "cannot access fields of %.*s - not a struct", STRING_FMT_ARGS(&base->name));
-            longjmp(statement_jmp_buf, -1);
-        }
-
-        TypeStructField* field = struct_find_field(&base_type.as.struct_, &ident->name);
-        if (field == nullptr) {
-            report_error(self->report, "%.*s is not a field of %.*s", STRING_FMT_ARGS(&ident->name), STRING_FMT_ARGS(&base->name));
-            longjmp(statement_jmp_buf, -1);
-        }
-
-        ident->node.type = *field->type;
-        base_type = *field->type;
-        base = ident;
-    }
-
-    compound_ident->node.type = last(&compound_ident->idents).node.type;
-}
-
-void check_index(Checker *self, AstIndex *index) {
-    // Identifier type will be either pointer/array
-    // Expression/location type will be the dereferenced type
-
-    check_ident(self, &index->ident);
-
-    Type *type = type_dereference(&index->ident.node.type);
-    if (type == nullptr) {
-        report_error(self->report, "%.*s cannot be dereferenced", STRING_FMT_ARGS(&index->ident.name));
-        longjmp(statement_jmp_buf, -1);
-    }
-
-    if (type->kind == PrimitiveType && type->as.primitive.kind == PrimitiveVoid) {
-        report_error(self->report, "cannot index %.*s with void element", STRING_FMT_ARGS(&index->ident.name));
-        longjmp(statement_jmp_buf, -1);
-    }
-
-    index->node.type = *type;
-    index->node.coercible = false;
-
-    check_expr(self, index->expr);
-    AstNode *expr_node = ast_expr_node(index->expr);
-    if (!(expr_node->coercible && type_coerce(&expr_node->type, &i64_type)) && !type_equal(&expr_node->type, &i64_type)) {
-        report_error(self->report, "%.*s cannot be indexed by non-i64 type", STRING_FMT_ARGS(&index->ident.name));
-        longjmp(statement_jmp_buf, -1);
-    }
-
-    expr_node->type = i64_type;
-}
-
 void check_location(Checker *self, AstLocation *location) {
     switch (location->kind) {
     case LocationIdent:
         check_ident(self, &location->as.ident);
-        break;
-    case LocationCompoundIdent:
-        check_compound_ident(self, &location->as.compound_ident);
-        break;
-    case LocationIndex:
-        check_index(self, &location->as.index);
         break;
     case LocationAccess:
         check_access(self, &location->as.access);
@@ -399,12 +324,6 @@ void check_binary_op(Checker *self, AstBinaryOp *binary_op) {
         break;
     case BinaryOpBitOr:
         panic("unimplemented");
-        break;
-    case BinaryOpIndex:
-        panic("unreachable"); // TODO: tidy up
-        break;
-    case BinaryOpAccess:
-        panic("unreachable"); // TODO: tidy up
         break;
     }
 
@@ -617,9 +536,6 @@ void check_expr(Checker *self, AstExpr *expr) {
         break;
     case ExprIdent:
         check_ident(self, &expr->as.ident);
-        break;
-    case ExprCompoundIdent:
-        check_compound_ident(self, &expr->as.compound_ident);
         break;
     case ExprCall:
         check_call(self, &expr->as.call);

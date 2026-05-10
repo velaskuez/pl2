@@ -4,10 +4,6 @@ AstNode *ast_location_node(AstLocation *location) {
     switch (location->kind) {
     case LocationIdent:
         return &location->as.ident.node;
-    case LocationCompoundIdent:
-        return &location->as.compound_ident.node;
-    case LocationIndex:
-        return &location->as.index.node;
     case LocationAccess:
         return &location->as.access.node;
     }
@@ -23,8 +19,6 @@ AstNode *ast_expr_node(AstExpr *expr) {
         return &expr->as.value.node;
     case ExprIdent:
         return &expr->as.ident.node;
-    case ExprCompoundIdent:
-        return &expr->as.compound_ident.node;
     case ExprCall:
         return &expr->as.call.node;
     case ExprNew:
