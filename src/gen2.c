@@ -86,6 +86,7 @@ static i32 next_local(Generator *self, const AstNode *node);
 static char *op_ext(Generator *self, const AstNode *node);
 static char *op_ext_type(Generator *self, const Type *type);
 static char *ret_ext(Generator *self, const AstNode *node);
+static int slot_size(Generator *self, const Type *type);
 
 void gen_init(Generator *self, Report *report) {
     self->variables = init_scoped_variables(nullptr);
@@ -586,11 +587,19 @@ void gen_ident(Generator *self, const AstIdent *ident) {
 }
 
 void gen_call(Generator *self, const AstCall *call) {
+    int nslots = 0;
     foreach(expr, &call->args) {
         gen_expr(self, expr);
+
+        AstNode *node = ast_expr_node(expr);
+        nslots += slot_size(self, &node->type);
     }
 
-    self->write_fn("call %.*s", STRING_FMT_ARGS(&call->name));
+    // Alternatively could store each expression in
+    // a local and push before using a regular
+    // call. calln seems nicer for now though.
+    self->write_fn("push.d %.*s", STRING_FMT_ARGS(&call->name));
+    self->write_fn("calln %d", nslots);
 }
 
 i32 next_local(Generator *self, const AstNode *node) {
@@ -708,6 +717,31 @@ char *ret_ext(Generator *self, const AstNode *node) {
         return ".d";
     case LiteralNumberType:
         assert(false);
+        break;
+    }
+}
+
+int slot_size(Generator *self, const Type *type) {
+    switch (type->kind) {
+    case StructType:
+        report_error(self->report, "cannot use structs as operands in stack - access individual fields instead");
+        longjmp(fail_buf, -1);
+        break;
+    case PrimitiveType:
+        switch (type->as.primitive.kind) {
+        case PrimitiveVoid:
+            return 0;
+        case PrimitiveI8:
+        case PrimitiveI32:
+            return 1;
+        case PrimitiveI64:
+            return 2;
+        }
+    case PointerType:
+    case ArrayType:
+        return 2;
+    case LiteralNumberType:
+        panic("unreachable");
         break;
     }
 }
