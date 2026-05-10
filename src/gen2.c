@@ -628,7 +628,9 @@ void gen_access(Generator *self, const AstAccess *access) {
             // iteration which will dereference it, as
             // asserted earlier that the resolved type is not
             // a struct.
-            if (base_type->kind != StructType) {
+            // If it's the last access, then we also skip over
+            // this as we have a shared aload/astore at the end
+            if (base_type->kind != StructType && i != access->fields.len-1) {
                 self->write_fn("aload%s", op_ext_type(self, base_type));
             }
 
