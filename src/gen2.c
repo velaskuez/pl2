@@ -84,7 +84,6 @@ jmp_buf fail_buf;
 
 static i32 next_local(Generator *self, const AstNode *node);
 static char *op_ext(Generator *self, const AstNode *node);
-static char *op_ext_type(Generator *self, const Type *type);
 static char *ret_ext(Generator *self, const AstNode *node);
 static int slot_size(Generator *self, const Type *type);
 
@@ -450,11 +449,15 @@ void gen_access(Generator *self, const AstAccess *access) {
 
     assert(access->node.type.kind != StructType); // This should have been caught out earlier
 
-    // Load the base value
-    const Type *base_type = &access->base.node.type;
+    // We are intentionally preserving the position
+    // of the base for reporting
+    AstNode node = access->base.node;
+
     i32 local = find_variable(self->variables, &access->base.name);
     assert(local >= 0);
-    self->write_fn("load%s %d", op_ext_type(self, base_type), local);
+
+    const Type *base_type = &access->base.node.type;
+    self->write_fn("load%s %d", op_ext(self, &node), local);
 
     size_t i = 0;
     foreach(access_field, &access->fields) {
@@ -539,7 +542,15 @@ void gen_access(Generator *self, const AstAccess *access) {
             // If it's the last access, then we also skip over
             // this as we have a shared aload/astore at the end
             if (base_type->kind != StructType && i != access->fields.len-1) {
-                self->write_fn("aload%s", op_ext_type(self, base_type));
+                // Hack: op_ext requires AstNode for the position
+                // for reporting, but this loop is mainly concerned
+                // with a *Type. Updating the two will get messy
+                // (our copy of node has a Type, not a *Type). Passing
+                // in two separate parameters for type and position
+                // will be tedious as in pretty much all instances except
+                // this the AstNode is sufficient
+                node.type = *base_type;
+                self->write_fn("aload%s", op_ext(self, &node));
             }
 
             break;
@@ -645,36 +656,6 @@ char *op_ext(Generator *self, const AstNode *node) {
         break;
     case PrimitiveType:
         switch (node->type.as.primitive.kind) {
-        case PrimitiveVoid:
-            report_error(self->report, "cannot use void operands");
-            longjmp(fail_buf, -1);
-            break;
-        case PrimitiveI8:
-            return ".b";
-        case PrimitiveI32:
-            return ".w";
-        case PrimitiveI64:
-            return ".d";
-        }
-        break;
-    case PointerType:
-    case ArrayType:
-        return ".d";
-    case LiteralNumberType:
-        assert(false);
-        break;
-    }
-}
-
-// TODO: replace op_ext with this
-char *op_ext_type(Generator *self, const Type *type) {
-    switch (type->kind) {
-    case StructType:
-        report_error(self->report, "cannot use structs as operands in stack - access individual fields instead");
-        longjmp(fail_buf, -1);
-        break;
-    case PrimitiveType:
-        switch (type->as.primitive.kind) {
         case PrimitiveVoid:
             report_error(self->report, "cannot use void operands");
             longjmp(fail_buf, -1);

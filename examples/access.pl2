@@ -5,7 +5,7 @@ struct Test0 {
 struct Test1 {
     c i32;
     d i32;
-    e i32;
+    e i8;
     f Test0;
 }
 
@@ -15,8 +15,8 @@ struct Test {
 }
 
 fn main() {
-    // let array = new [100]Test;
-    // let a = array[0].a;
+    let array = new [100]Test;
+    let a = array[0].b.e;
 
     // let test = new Test;
     // let b = test.b.d;
@@ -29,7 +29,7 @@ fn main() {
     // let t = bytes[i];
 
     // let m = new *i32;
-    // let t = m[0][1];
+    // let e = m[0][1];
 
 
     // Locations

@@ -11,7 +11,7 @@
 #include "str.h"
 #include "check.h"
 
-#define FILE "examples/array.pl2"
+#define FILE "examples/access.pl2"
 
 int main() {
     int fd = open(FILE, O_RDONLY);

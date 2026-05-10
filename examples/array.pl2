@@ -65,12 +65,12 @@ fn strlen(s *i8) i64 {
 }
 
 fn main() void {
-    // let buf = new ByteArray;
-    // ByteArray_push(buf, 'T');
-    // ByteArray_push(buf, 'e');
-    // ByteArray_push(buf, 's');
-    // ByteArray_push(buf, 't');
-    // print(buf.ptr, buf.len);
+    let buf = new ByteArray;
+    ByteArray_push(buf, 'T');
+    ByteArray_push(buf, 'e');
+    ByteArray_push(buf, 's');
+    ByteArray_push(buf, 't');
+    print(buf.ptr, buf.len);
 
     let s = "Hello, World!";
     print(s, strlen(s));
