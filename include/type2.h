@@ -13,10 +13,10 @@ typedef enum {
     PointerType,
     StructType,
     ArrayType,
-    LiteralNumberType
+    UnknownType
 } TypeKind;
 
-char *type_kind_str[LiteralNumberType+1];
+char *type_kind_str[UnknownType+1];
 
 typedef struct {
     u32 size;
@@ -77,10 +77,10 @@ typedef struct {
     Type *items;
 } Types;
 
-Type void_type, i8_type, i32_type, i64_type, literal_number_type;
+Type void_type, i8_type, i32_type, i64_type, unknown_type;
 
 bool type_equal(const Type *t, const Type *u);
-bool type_equal_literal_number(const Type *t, const Type *u);
+bool type_equal_unknown(const Type *t, const Type *u);
 bool type_equal_primitive(const TypePrimitive *t, const TypePrimitive *u);
 bool type_equal_pointer(const TypePointer *t, const TypePointer *u);
 bool type_equal_struct(const TypeStruct *t, const TypeStruct *u);
@@ -97,5 +97,4 @@ Type type_make_struct(String name, const Types *types, const Strings *names);
 
 TypeStructField* struct_find_field(const TypeStruct *struct_, const String *name);
 
-char *type_fmt(const Type *self);
 void type_fprint(FILE *fp, const Type *self);

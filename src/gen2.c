@@ -512,7 +512,7 @@ void gen_access(Generator *self, const AstAccess *access) {
                 assert(i == access->fields.len-1);
                 self->write_fn("push.d %d", field->offset);
                 break;
-            case LiteralNumberType:
+            case UnknownType:
                 panic("unimplemented");
                 break;
             }
@@ -641,7 +641,7 @@ i32 next_local(Generator *self, const AstNode *node) {
     case ArrayType:
         self->local += 2;
         break;
-    case LiteralNumberType:
+    case UnknownType:
         assert(false);
         break;
     }
@@ -672,7 +672,7 @@ char *op_ext(Generator *self, const AstNode *node) {
     case PointerType:
     case ArrayType:
         return ".d";
-    case LiteralNumberType:
+    case UnknownType:
         assert(false);
         break;
     }
@@ -697,7 +697,7 @@ char *ret_ext(Generator *self, const AstNode *node) {
     case PointerType:
     case ArrayType:
         return ".d";
-    case LiteralNumberType:
+    case UnknownType:
         assert(false);
         break;
     }
@@ -722,7 +722,7 @@ int slot_size(Generator *self, const Type *type) {
     case PointerType:
     case ArrayType:
         return 2;
-    case LiteralNumberType:
+    case UnknownType:
         panic("unreachable");
         break;
     }

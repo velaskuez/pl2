@@ -9,16 +9,16 @@ char *primitive_type_str[PrimitiveI64+1] = {
     [PrimitiveI64] = "i64"
 };
 
-char *type_kind_str[LiteralNumberType+1] = {
+char *type_kind_str[UnknownType+1] = {
     [PrimitiveType] = "primitive",
     [PointerType] = "pointer",
     [StructType] = "struct",
     [ArrayType] = "array",
-    [LiteralNumberType] = "literal number" // TODO: 'unknown' would probably be a better name
+    [UnknownType] = "unknown"
 };
 
-Type literal_number_type = {
-    .kind = LiteralNumberType,
+Type unknown_type = {
+    .kind = UnknownType,
     // The layout is unknown. Checker should default to
     // i32 if a concrete type cannot be inferred.
 };
@@ -55,8 +55,8 @@ bool type_equal(const Type *t, const Type *u) {
     if (t->kind != u->kind) return false;
 
     switch (t->kind) {
-    case LiteralNumberType:
-        return type_equal_literal_number(t, u);
+    case UnknownType:
+        return type_equal_unknown(t, u);
     case PrimitiveType:
         return type_equal_primitive(&t->as.primitive, &u->as.primitive);
     case PointerType:
@@ -68,8 +68,8 @@ bool type_equal(const Type *t, const Type *u) {
     }
 }
 
-bool type_equal_literal_number(const Type *t, const Type *u) {
-    return t->kind == u->kind;
+bool type_equal_unknown(const Type *t, const Type *u) {
+    return false;
 }
 
 bool type_equal_primitive(const TypePrimitive *t, const TypePrimitive *u) {
@@ -90,9 +90,9 @@ bool type_equal_array(const TypeArray *t, const TypeArray *u) {
 
 bool type_coerce(const Type *from, const Type *to) {
     switch (from->kind) {
-    case LiteralNumberType:
+    case UnknownType:
         switch (to->kind) {
-            case LiteralNumberType:
+            case UnknownType:
             case PrimitiveType:
             case PointerType:
                 return true;
@@ -126,9 +126,9 @@ bool type_coerce(const Type *from, const Type *to) {
 
 bool type_cast(const Type *from, const Type *to) {
     switch (from->kind) {
-    case LiteralNumberType:
+    case UnknownType:
         switch (to->kind) {
-            case LiteralNumberType:
+            case UnknownType:
             case PrimitiveType:
             case PointerType:
                 return true;
@@ -153,7 +153,7 @@ bool type_cast(const Type *from, const Type *to) {
 
 Type *type_dereference(const Type *from) {
     switch (from->kind) {
-    case LiteralNumberType:
+    case UnknownType:
     case PrimitiveType:
     case StructType:
         return nullptr;
@@ -253,13 +253,9 @@ TypeStructField* struct_find_field(const TypeStruct *struct_, const String *name
     return nullptr;
 }
 
-char *type_fmt(const Type *self) {
-    return "TODO";
-}
-
 void type_fprint(FILE *fp, const Type *self) {
     switch (self->kind) {
-    case LiteralNumberType:
+    case UnknownType:
         fprintf(fp, "%s", type_kind_str[self->kind]);
         break;
     case PrimitiveType:

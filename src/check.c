@@ -408,10 +408,7 @@ void check_value(Checker *self, AstValue *value) {
             type = i64_type;
         }
 
-        // TODO: for this to work:
-        //  - expression checking should push down coerced types to sub-expressions
-        //  - let should assign a default type to literal-only expressions
-        // type = literal_number_type;
+        // type = unknown_type;
 
         break;
     }
