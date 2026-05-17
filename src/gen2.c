@@ -152,12 +152,12 @@ void gen_statement(Generator *self, const AstStatement *statement) {
         gen_let(self, &statement->as.let);
         break;
     case StatementExpr:
-        gen_expr(self, &statement->as.expr);
-        // TODO: call is the only permissible statement expression in stack
-        AstNode *node = ast_expr_node((AstExpr *)&statement->as.expr);
-        if (node->type.kind == PrimitiveType && node->type.as.primitive.kind != PrimitiveVoid) {
-            self->write_fn("pop%s", op_ext(self, node));
+        if (statement->as.expr.kind != ExprCall) {
+            report_error(self->report, "not a statement");
+            longjmp(fail_buf, -1);
         }
+
+        gen_expr(self, &statement->as.expr);
         break;
     case StatementReturn:
         gen_return(self, statement->as.return_);
