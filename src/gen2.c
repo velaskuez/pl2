@@ -153,6 +153,7 @@ void gen_statement(Generator *self, const AstStatement *statement) {
         break;
     case StatementExpr:
         gen_expr(self, &statement->as.expr);
+        // TODO: call is the only permissible statement expression in stack
         AstNode *node = ast_expr_node((AstExpr *)&statement->as.expr);
         if (node->type.kind == PrimitiveType && node->type.as.primitive.kind != PrimitiveVoid) {
             self->write_fn("pop%s", op_ext(self, node));

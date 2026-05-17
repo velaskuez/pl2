@@ -36,6 +36,7 @@ static void check_while(Checker *self, AstWhile *while_);
 static void init_scoped_symbols(Checker *self);
 static void free_scoped_symbols(Checker *self);
 static void report_type_mismatch_error(Report *self, const Type *want, const Type *have);
+static void set_expr_type(AstExpr *expr, Type type);
 
 // Each AST node that is processed in a loop will use longjmp(buf, -1)
 // to avoid having to handle the error at each layer of the AST
@@ -293,11 +294,10 @@ void check_binary_op(Checker *self, AstBinaryOp *binary_op) {
             report_type_mismatch_error(self->report, &lhs_node->type, &rhs_node->type);
         }
 
-        // FIXME: should also push down coerced type to sub-expressions
         if (left_coercible) {
-            lhs_node->type = rhs_node->type;
+            set_expr_type(binary_op->left, rhs_node->type);
         } else {
-            rhs_node->type = lhs_node->type;
+            set_expr_type(binary_op->right, lhs_node->type);
         }
     }
 
@@ -317,7 +317,7 @@ void check_binary_op(Checker *self, AstBinaryOp *binary_op) {
     case BinaryOpLe:
     case BinaryOpGt:
     case BinaryOpGe:
-        type = i32_type;
+        type = i32_type; // TODO: maybe boolean should be a type?
         break;
     case BinaryOpBitAnd:
         panic("unimplemented");
@@ -329,6 +329,36 @@ void check_binary_op(Checker *self, AstBinaryOp *binary_op) {
 
     binary_op->node.type = type;
     binary_op->node.coercible = lhs_node->coercible && rhs_node->coercible;
+}
+
+// Sub-expressions with unknown types will need
+// their types set correctly, otherwise gen will spit
+// out incorrect bytecodes
+void set_expr_type(AstExpr *expr, Type type) {
+    AstNode *node = ast_expr_node(expr);
+    node->type = type;
+
+    switch (expr->kind) {
+    case ExprBinaryOp:
+        set_expr_type(expr->as.binary_op.left, type);
+        set_expr_type(expr->as.binary_op.right, type);
+		break;
+    case ExprUnaryOp:
+        set_expr_type(expr->as.unary_op.expr, type);
+		break;
+    case ExprValue:
+        // No sub-expressions
+        break;
+    case ExprIdent:
+    case ExprCall:
+    case ExprNew:
+    case ExprCast:
+    case ExprAccess:
+        // These expressions should be determining the
+        // type, so they shouldn't be overridden.
+        panic("unreachable");
+		break;
+    }
 }
 
 void check_unary_op(Checker *self, AstUnaryOp *unary_op) {
