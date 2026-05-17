@@ -389,11 +389,11 @@ void gen_cast(Generator *self, const AstCast *cast) {
     Type from_type = ast_expr_node(cast->expr)->type;
     Type to_type = cast->node.type;
 
+    // TODO: use type_equal?
     if ((from_type.kind == PointerType && to_type.kind == PointerType)
             || (from_type.kind == ArrayType && to_type.kind == PointerType)
             || (from_type.kind == ArrayType && to_type.kind == PointerType)
             || (from_type.kind == ArrayType && to_type.kind == ArrayType)) {
-        // TODO: number literals -> pointer should also be a no-op
         // No-op
         return;
     }

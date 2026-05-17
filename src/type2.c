@@ -100,16 +100,16 @@ bool type_coerce(const Type *from, const Type *to) {
                 return false;
         }
         break;
-    case PrimitiveType:
-        switch (to->kind) {
-        case PrimitiveType:
-            return (to->as.primitive.kind != PrimitiveVoid &&
-                    from->as.primitive.kind != PrimitiveVoid &&
-                    (from->layout.size <= to->layout.size));
-        default:
-            return false;
-        }
-        break;
+    // case PrimitiveType:
+    //     switch (to->kind) {
+    //     case PrimitiveType:
+    //         return (to->as.primitive.kind != PrimitiveVoid &&
+    //                 from->as.primitive.kind != PrimitiveVoid &&
+    //                 (from->layout.size <= to->layout.size));
+    //     default:
+    //         return false;
+    //     }
+    //     break;
     case PointerType:
         switch (to->kind) {
         case PointerType:

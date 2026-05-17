@@ -5,7 +5,7 @@ alloc
 ret.d
 ; unreachable: ");
 
-    return cast(*void) 0;
+    return 0;
 }
 
 fn print(string *i8, size i64) i32 {
@@ -32,15 +32,14 @@ fn ByteArray_push(self *ByteArray, x i8) {
         self.cap = 128;
     }
 
-    if self.ptr == cast(*i8) 0 {
+    if self.ptr == 0 {
         self.ptr = cast(*i8) alloc(self.cap * 1)
     }
 
     if self.len == self.cap {
         self.cap = self.cap * 2;
-        let ptr = cast(*i8) alloc(self.cap * 1);
-        // copy (or implement realloc?)
-        self.ptr = ptr;
+        // TODO: copy (or implement realloc?)
+        self.ptr = alloc(self.cap * 1);
     }
 
     self.ptr[self.len] = x;
@@ -51,8 +50,7 @@ fn ByteArray_push(self *ByteArray, x i8) {
 }
 
 fn strlen(s *i8) i64 {
-    // TODO: coerce primitive -> pointer
-    if s == cast(*i8) 0 {
+    if s == 0 {
         return 0;
     }
 
