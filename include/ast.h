@@ -9,13 +9,7 @@ typedef struct AstStatement AstStatement;
 
 typedef struct {
     Position position;
-
     Type type;
-
-    // TODO: This could be better - I think it should be inferred
-    // from the Type and there should be some sort of helper like `is_coercible()`
-    // which checks is the type is a LiteralNumber or a *void.
-    bool coercible; // Number literals may be coerced to any other number type
 } AstNode;
 
 typedef struct {

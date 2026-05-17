@@ -199,7 +199,6 @@ void check_ident(Checker *self, AstIdent *ident) {
     }
 
     ident->node.type = symbol->type;
-    ident->node.coercible = false;
 }
 
 void check_location(Checker *self, AstLocation *location) {
@@ -223,14 +222,13 @@ void check_assign(Checker *self, AstAssign *assign) {
     assert(location_node != nullptr);
 
     if (type_coerce(&expr_node->type, &location_node->type)) {
-        expr_node->type = location_node->type;
+        set_expr_type(&assign->expr, location_node->type);
     } else if (!type_equal(&expr_node->type, &location_node->type)) {
         report_type_mismatch_error(self->report, &location_node->type, &expr_node->type);
         longjmp(statement_jmp_buf, -1);
     }
 
     expr_node->type = location_node->type;
-    expr_node->coercible = false;
 }
 
 void check_let(Checker *self, AstLet *let) {
@@ -253,7 +251,7 @@ void check_let(Checker *self, AstLet *let) {
 
     if (let->type_expr == nullptr) {
         if (expr_node->type.kind == UnknownType) {
-            expr_node->type = i32_type;
+            set_expr_type(let->expr, i32_type);
         }
 
         let->node.type = expr_node->type;
@@ -269,14 +267,13 @@ void check_let(Checker *self, AstLet *let) {
 
     if (expr_node != nullptr) {
         if (type_coerce(&expr_node->type, &let_type)) {
-            expr_node->type = let_type;
+            set_expr_type(let->expr, let_type);
         } else if (!type_equal(&expr_node->type, &let_type)) {
             report_type_mismatch_error(self->report, &let_type, &expr_node->type);
             longjmp(statement_jmp_buf, -1);
         }
 
         expr_node->type = let_type;
-        expr_node->coercible = false;
     }
 
     let->node.type = let_type;
@@ -294,9 +291,6 @@ void check_binary_op(Checker *self, AstBinaryOp *binary_op) {
     if (!type_equal(&lhs_node->type, &rhs_node->type)) {
         bool left_coercible = type_coerce(&lhs_node->type, &rhs_node->type);
         bool right_coercible = type_coerce(&rhs_node->type, &lhs_node->type);
-
-        // If they can be coerced in both directions, then they should be equal?
-        assert(!(left_coercible && right_coercible));
 
         if (!left_coercible && !right_coercible) {
             report_type_mismatch_error(self->report, &lhs_node->type, &rhs_node->type);
@@ -336,7 +330,6 @@ void check_binary_op(Checker *self, AstBinaryOp *binary_op) {
     }
 
     binary_op->node.type = type;
-    binary_op->node.coercible = lhs_node->coercible && rhs_node->coercible;
 }
 
 // Sub-expressions with unknown types will need
@@ -362,9 +355,11 @@ void set_expr_type(AstExpr *expr, Type type) {
     case ExprNew:
     case ExprCast:
     case ExprAccess:
-        // These expressions should be determining the
-        // type, so they shouldn't be overridden.
-        panic("unreachable");
+        // These expressions should be determining the types,
+        // ie it's not possible for them to be unknown,
+        // but they could be *void, which can be coerced into
+        // any other pointer type.
+        assert(type.kind == PointerType);
 		break;
     }
 }
@@ -387,7 +382,6 @@ void check_unary_op(Checker *self, AstUnaryOp *unary_op) {
     }
 
     unary_op->node.type = type;
-    unary_op->node.coercible = false;
 }
 
 void check_value(Checker *self, AstValue *value) {
@@ -430,7 +424,6 @@ void check_call(Checker *self, AstCall *call) {
     }
 
     call->node.type = symbol->type;
-    call->node.coercible = false;
 
     Types argument_types = symbol->as.function.argument_types;
     if (call->args.len != argument_types.len) {
@@ -446,14 +439,13 @@ void check_call(Checker *self, AstCall *call) {
         Type type = argument_types.items[i];
 
         if (type_coerce(&expr_node->type, &type)) {
-            expr_node->type = type;
+            set_expr_type(expr, type);
         } else if (!type_equal(&expr_node->type, &type)) {
             report_type_mismatch_error(self->report, &type, &expr_node->type);
             longjmp(statement_jmp_buf, -1);
         }
 
         expr_node->type = type;
-        expr_node->coercible = false;
 
         i++;
     }
@@ -476,7 +468,7 @@ void check_cast(Checker *self, AstCast *cast) {
     AstNode *node = ast_expr_node(cast->expr); // from type
 
     if (type_coerce(&node->type, &cast->node.type)) {
-        node->type = cast->node.type;
+        set_expr_type(cast->expr, cast->node.type);
         return;
     }
 
@@ -501,7 +493,6 @@ void check_access(Checker *self, AstAccess *access) {
     }
 
     access->base.node.type = base_type;
-    access->base.node.coercible = false;
 
     assert(access->fields.len > 0);
     foreach(access_field, &access->fields) {
@@ -527,7 +518,6 @@ void check_access(Checker *self, AstAccess *access) {
             }
 
             access_field->as.ident.node.type = *field->type;
-            access_field->as.ident.node.coercible = false;
 
             base_type = *field->type;
 
@@ -548,21 +538,19 @@ void check_access(Checker *self, AstAccess *access) {
             AstNode *expr_node = ast_expr_node(access_field->as.index);
 
             if (type_coerce(&expr_node->type, &i64_type)) {
-                expr_node->type = i64_type;
+                set_expr_type(access_field->as.index, i64_type);
             } else if (!type_equal(&expr_node->type, &i64_type)) {
                 report_error(self->report, "<type> cannot be indexed by <type>");
                 longjmp(statement_jmp_buf, -1);
             }
 
             expr_node->type = i64_type;
-            expr_node->coercible = false;
 
             break;
         }
     }
 
     access->node.type = base_type;
-    access->node.coercible = false;
 }
 
 void check_expr(Checker *self, AstExpr *expr) {
@@ -610,7 +598,7 @@ void check_return(Checker *self, AstExpr *expr) {
     AstNode *expr_node = ast_expr_node(expr);
 
     if (type_coerce(&expr_node->type, &self->current_function_return_type)) {
-        expr_node->type = self->current_function_return_type;
+        set_expr_type(expr, self->current_function_return_type);
         return;
     }
 
