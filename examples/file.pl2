@@ -1,0 +1,34 @@
+include "std/io"
+
+fn exit(code i32) {
+    @output("");
+
+    return;
+}
+
+fn uppercase(c i8) i8 {
+    return 0;
+}
+
+fn main() {
+//     let path = "my_file.txt";
+// 
+//     let fd = open(path);
+//     if (fd == 1) {
+//         print("could not open file\n");
+//         exit(1);
+//     }
+// 
+//     let buf = cast(*i8) new [1024]i8;
+//     let n = cast(i64) read(fd, buf, 1024);
+// 
+//     let i i64 = 0;
+//     while (i < n) {
+//         buf[i] = uppercase(buf[i]);
+//         i = i + 1;
+//     }
+// 
+//     n = cast(i64) write(fd, buf, 1024);
+
+    return;
+}

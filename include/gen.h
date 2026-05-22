@@ -21,7 +21,8 @@ struct VariableChain {
     VariableChain *next;
 };
 
-typedef struct {
+typedef struct Generator Generator;
+struct Generator {
     VariableChain *variables;
 
     int local; // For allocating temporary variables
@@ -30,10 +31,11 @@ typedef struct {
 
     char *ret_ext;
 
-    int (*write_fn)(const char *, ...) __attribute__((format(printf, 1, 2)));
+    int fd;
+    int (*write)(Generator*, const char *, ...) __attribute__((format(printf, 2, 3)));
 
     Report *report;
-} Generator;
+};
 
 void gen_init(Generator *self, Report *report);
 void gen_file(Generator *self, const AstFile *file);

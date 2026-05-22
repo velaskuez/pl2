@@ -13,6 +13,7 @@
 #define KEYWORD_NEW "new"
 #define KEYWORD_LET "let"
 #define KEYWORD_CAST "cast"
+#define KEYWORD_INCLUDE "include"
 
 typedef struct {
     int line;
@@ -39,6 +40,7 @@ typedef enum {
     KeywordNew,
     KeywordLet,
     KeywordCast,
+    KeywordInclude,
 
     // Symbols
     TokenAt,

@@ -1,0 +1,28 @@
+
+open:
+
+push.w 0
+ret.w
+
+read:
+
+push.w 0
+ret.w
+
+write:
+
+push.w 0
+ret.w
+
+print:
+push.w 0
+store.w 2
+push 1 ; stdout
+load.d 0
+load.d 2
+push 4 ; write
+system
+ret.w
+; unreachable:
+push.w 0
+ret.w

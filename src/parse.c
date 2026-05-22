@@ -74,6 +74,7 @@ static AstStatements parse_statements(Parser *self);
 static AstBlock parse_block(Parser *self);
 static AstFunction parse_function(Parser *self);
 static AstStruct parse_struct(Parser *self);
+static AstInclude parse_include(Parser *self);
 
 static AstNode make_ast_node(Parser *self);
 static void report_unmatched_token_error(Parser *self, TokenKind want);
@@ -110,6 +111,9 @@ AstFile parse_file(Parser *self) {
         } else if (at(self, KeywordStruct)) {
             AstStruct struct_ = parse_struct(self);
             append(&file.structs, struct_);
+        } else if (at(self, KeywordInclude)) {
+            AstInclude include = parse_include(self);
+            append(&file.includes, include);
         } else {
             report_unexpected_token_error(self);
             break;
@@ -645,7 +649,7 @@ AstStruct parse_struct(Parser *self) {
     while (!eof(self)) {
         AstParam param = parse_param(self);
         append(&struct_.fields, param);
-        expect(self, TokenSemicolon);
+        while (eat(self, TokenSemicolon)) {}
 
         if (at(self, TokenRCurly)) break;
     }
@@ -653,6 +657,17 @@ AstStruct parse_struct(Parser *self) {
     expect(self, TokenRCurly);
 
     return struct_;
+}
+
+AstInclude parse_include(Parser *self) {
+    AstInclude include = {0};
+
+    expect(self, KeywordInclude);
+    include.path = expect(self, TokenString).value;
+    append(&include.path, '\0');
+    while (eat(self, TokenSemicolon)) {}
+
+    return include;
 }
 
 AstNode make_ast_node(Parser *self) {

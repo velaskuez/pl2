@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <setjmp.h>
+#include <unistd.h>
 
 #include "check.h"
 #include "str.h"
@@ -54,6 +55,12 @@ void check_init(Checker *self, Report *report) {
 }
 
 void check_file(Checker *self, const AstFile *file) {
+    foreach(include, &file->includes) {
+        if (access(include->path.items, F_OK) != 0) {
+            report_error(self->report, "%s not found", include->path.items);
+        }
+    }
+
     foreach(struct_, &file->structs) {
         int r = setjmp(struct_jmp_buf);
         if (r == -1) continue;

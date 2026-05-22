@@ -49,6 +49,7 @@ char *token_str[] = {
     [KeywordNew] = "new",
     [KeywordLet] = "let",
     [KeywordCast] = "cast",
+    [KeywordInclude] = "include",
 
     [TokenAt] = "@",
     [TokenComma] = ",",
@@ -251,6 +252,7 @@ TokenKind check_keyword(const String *word) {
     if (string_cstr_cmp(word, KEYWORD_NEW) == 0) return KeywordNew;
     if (string_cstr_cmp(word, KEYWORD_LET) == 0) return KeywordLet;
     if (string_cstr_cmp(word, KEYWORD_CAST) == 0) return KeywordCast;
+    if (string_cstr_cmp(word, KEYWORD_INCLUDE) == 0) return KeywordInclude;
 
     return 0;
 }

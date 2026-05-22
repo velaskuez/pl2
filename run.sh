@@ -54,5 +54,5 @@ if [[ $1 == "test" ]]; then
     done
 else
     cc build/debug/*.o -o build/debug/main
-    ./build/debug/main
+    ./build/debug/main "$@"
 fi

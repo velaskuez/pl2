@@ -293,8 +293,18 @@ typedef struct {
 } AstFunctions;
 
 typedef struct {
+    String path;
+} AstInclude;
+
+typedef struct {
+    size_t len, cap;
+    AstInclude *items;
+} AstIncludes;
+
+typedef struct {
     AstStructs structs;
     AstFunctions functions;
+    AstIncludes includes;
 } AstFile;
 
 AstNode *ast_location_node(AstLocation *location);

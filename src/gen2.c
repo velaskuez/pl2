@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 #include "gen.h"
 #include "array.h"
@@ -42,14 +44,14 @@ static VariableChain* free_scoped_variables(VariableChain *self) {
     return head;
 }
 
-static int printf_with_newline(const char* fmt, ...) {
+static int printf_with_newline(Generator *self, const char* fmt, ...) {
     int n = 0;
 
     va_list args;
     va_start(args, fmt);
-    n += vprintf(fmt, args);
+    n += vdprintf(self->fd, fmt, args);
     va_end(args);
-    n += printf("\n");
+    n += dprintf(self->fd, "\n");
 
     return n;
 }
@@ -89,17 +91,33 @@ static int slot_size(Generator *self, const Type *type);
 
 void gen_init(Generator *self, Report *report) {
     self->variables = init_scoped_variables(nullptr);
-    self->write_fn = printf_with_newline;
+    self->fd = 1; // stdout
+    self->write = printf_with_newline;
     self->report = report;
 }
 
 void gen_file(Generator *self, const AstFile *file) {
-    self->write_fn(".entry main");
-
     int r = setjmp(fail_buf);
     if (r == -1) {
         report_error(self->report, "failed to generate stack");
         return;
+    }
+
+    foreach(include, &file->includes) {
+        // The file should already by compiled
+        // which isn't ideal but will work for
+        // now.
+        int fd = open(include->path.items, O_RDONLY);
+        assert(fd != -1);
+
+        char buf[4096];
+        size_t n = 0;
+        while ((n = read(fd, buf, 4096)) > 0) {
+            write(self->fd, buf, n);
+        }
+
+        // off_t len = 0;
+        // sendfile(self->fd, fd, 0, &len, nullptr, 0);
     }
 
     foreach(function, &file->functions) {
@@ -111,7 +129,7 @@ void gen_function(Generator *self, const AstFunction *function) {
     int local = self->local;
     self->ret_ext = ret_ext(self, &function->node);
 
-    self->write_fn("\n%.*s:", STRING_FMT_ARGS(&function->name));
+    self->write(self, "\n%.*s:", STRING_FMT_ARGS(&function->name));
 
     self->variables = init_scoped_variables(self->variables);
 
@@ -189,12 +207,12 @@ void gen_location_ident(Generator *self, const AstIdent *ident) {
     i32 local = find_variable(self->variables, &ident->name);
     assert(local != -1);
 
-    self->write_fn("store%s %d", op_ext(self, &ident->node), local);
+    self->write(self, "store%s %d", op_ext(self, &ident->node), local);
 }
 
 void gen_location_access(Generator *self, const AstAccess *access) {
     gen_access(self, access);
-    self->write_fn("astore%s", op_ext(self, &access->node));
+    self->write(self, "astore%s", op_ext(self, &access->node));
 }
 
 void gen_assign(Generator *self, const AstAssign *assign) {
@@ -211,7 +229,7 @@ void gen_let(Generator *self, const AstLet *let) {
 
     if (let->expr != nullptr) {
         gen_expr(self, let->expr);
-        self->write_fn("store%s %d", op_ext(self, &let->node), local);
+        self->write(self, "store%s %d", op_ext(self, &let->node), local);
     }
 }
 
@@ -221,11 +239,11 @@ void gen_return(Generator *self, const AstExpr *expr) {
 
         const char *ext = self->ret_ext;
         gen_expr(self, expr);
-        self->write_fn("ret%s", ext);
+        self->write(self, "ret%s", ext);
         return;
     }
 
-    self->write_fn("ret");
+    self->write(self, "ret");
 }
 
 void gen_if(Generator *self, const AstIf *if_) {
@@ -234,11 +252,11 @@ void gen_if(Generator *self, const AstIf *if_) {
     AstNode* condition_node = ast_expr_node((AstExpr *)&if_->condition);
     gen_expr(self, &if_->condition);
 
-    self->write_fn("push%s 0", op_ext(self, condition_node));
-    self->write_fn("cmp%s", op_ext(self, condition_node));
-    self->write_fn("jmp.eq l%d", l1);
+    self->write(self, "push%s 0", op_ext(self, condition_node));
+    self->write(self, "cmp%s", op_ext(self, condition_node));
+    self->write(self, "jmp.eq l%d", l1);
     gen_block(self, &if_->block);
-    self->write_fn("l%d:", l1);
+    self->write(self, "l%d:", l1);
 
     if (if_->else_block != nullptr) {
         gen_block(self, if_->else_block);
@@ -251,19 +269,19 @@ void gen_while(Generator *self, const AstWhile *while_) {
 
     AstNode* condition_node = ast_expr_node((AstExpr *)&while_->condition);
 
-    self->write_fn("l%d:", l1);
+    self->write(self, "l%d:", l1);
     gen_expr(self, &while_->condition);
-    self->write_fn("push%s 0", op_ext(self, condition_node));
-    self->write_fn("cmp%s", op_ext(self, condition_node));
-    self->write_fn("jmp.eq l%d", l2);
+    self->write(self, "push%s 0", op_ext(self, condition_node));
+    self->write(self, "cmp%s", op_ext(self, condition_node));
+    self->write(self, "jmp.eq l%d", l2);
     gen_block(self, &while_->block);
-    self->write_fn("jmp l%d", l1);
-    self->write_fn("l%d:", l2);
+    self->write(self, "jmp l%d", l1);
+    self->write(self, "l%d:", l2);
 }
 
 void gen_output(Generator *self, const AstOutput *output) {
     String contents = string_trim(&output->contents);
-    self->write_fn("%.*s", STRING_FMT_ARGS(&contents));
+    self->write(self, "%.*s", STRING_FMT_ARGS(&contents));
 }
 
 void gen_expr(Generator *self, const AstExpr *expr) {
@@ -299,13 +317,13 @@ void gen_comparison_op(Generator *self, const char *ext, const char *jmp_ext) {
     int l1 = self->label++;
     int l2 = self->label++;
 
-    self->write_fn("cmp%s", ext);
-    self->write_fn("jmp%s l%d", jmp_ext, l1);
-    self->write_fn("push.w 0");
-    self->write_fn("jmp l%d", l2);
-    self->write_fn("l%d:", l1);
-    self->write_fn("push.w 1");
-    self->write_fn("l%d:", l2);
+    self->write(self, "cmp%s", ext);
+    self->write(self, "jmp%s l%d", jmp_ext, l1);
+    self->write(self, "push.w 0");
+    self->write(self, "jmp l%d", l2);
+    self->write(self, "l%d:", l1);
+    self->write(self, "push.w 1");
+    self->write(self, "l%d:", l2);
 }
 
 void gen_binary_op(Generator *self, const AstBinaryOp *binary_op) {
@@ -336,25 +354,25 @@ void gen_binary_op(Generator *self, const AstBinaryOp *binary_op) {
         gen_comparison_op(self, ext, ".ge");
 		break;
     case BinaryOpAdd:
-        self->write_fn("add%s", ext);
+        self->write(self, "add%s", ext);
 		break;
     case BinaryOpSub:
-        self->write_fn("sub%s", ext);
+        self->write(self, "sub%s", ext);
 		break;
     case BinaryOpMul:
-        self->write_fn("mul%s", ext);
+        self->write(self, "mul%s", ext);
 		break;
     case BinaryOpDiv:
-        self->write_fn("div%s", ext);
+        self->write(self, "div%s", ext);
 		break;
     case BinaryOpAnd:
-        self->write_fn("add.w");
-        self->write_fn("push.w 2");
+        self->write(self, "add.w");
+        self->write(self, "push.w 2");
         gen_comparison_op(self, ".w", ".eq");
 		break;
     case BinaryOpOr:
-        self->write_fn("add.w");
-        self->write_fn("push.w 1");
+        self->write(self, "add.w");
+        self->write(self, "push.w 1");
         gen_comparison_op(self, ".w", ".ge");
 		break;
     case BinaryOpBitAnd:
@@ -371,16 +389,16 @@ void gen_new(Generator *self, const AstNew *new) {
     case PointerType:
         Type *type = type_dereference(&new->node.type);
         assert(type != nullptr);
-        self->write_fn("push.d %d", type->layout.size);
+        self->write(self, "push.d %d", type->layout.size);
         break;
     case ArrayType:
-        self->write_fn("push.d %d", new->node.type.layout.size);
+        self->write(self, "push.d %d", new->node.type.layout.size);
         break;
     default:
         assert(false);
     }
 
-    self->write_fn("alloc");
+    self->write(self, "alloc");
 }
 
 void gen_cast(Generator *self, const AstCast *cast) {
@@ -425,17 +443,17 @@ void gen_cast(Generator *self, const AstCast *cast) {
     if (from_kind == to_kind) {
         return;
     } else if (from_kind == PrimitiveI8 && to_kind == PrimitiveI32) {
-        self->write_fn("b2i");
+        self->write(self, "b2i");
     } else if (from_kind == PrimitiveI8 && to_kind == PrimitiveI64) {
-        self->write_fn("b2l");
+        self->write(self, "b2l");
     } else if (from_kind == PrimitiveI32 && to_kind == PrimitiveI8) {
-        self->write_fn("i2b");
+        self->write(self, "i2b");
     } else if (from_kind == PrimitiveI32 && to_kind == PrimitiveI64) {
-        self->write_fn("i2l");
+        self->write(self, "i2l");
     } else if (from_kind == PrimitiveI64 && to_kind == PrimitiveI8) {
-        self->write_fn("l2b");
+        self->write(self, "l2b");
     } else if (from_kind == PrimitiveI64 && to_kind == PrimitiveI32) {
-        self->write_fn("l2i");
+        self->write(self, "l2i");
     } else {
         panic("unreachable");
     }
@@ -458,7 +476,7 @@ void gen_access(Generator *self, const AstAccess *access) {
     assert(local >= 0);
 
     const Type *base_type = &access->base.node.type;
-    self->write_fn("load%s %d", op_ext(self, &node), local);
+    self->write(self, "load%s %d", op_ext(self, &node), local);
 
     size_t i = 0;
     foreach(access_field, &access->fields) {
@@ -479,7 +497,7 @@ void gen_access(Generator *self, const AstAccess *access) {
             switch (field->type->kind) {
             case PointerType:
             case ArrayType:
-                self->write_fn("push.d %d", field->offset);
+                self->write(self, "push.d %d", field->offset);
 
                 if (i == access->fields.len-1) {
                     // Last field - follow with typed aload to
@@ -496,7 +514,7 @@ void gen_access(Generator *self, const AstAccess *access) {
                 }
 
                 // aload with the pushed offset to get the base pointer of the field's allocation
-                self->write_fn("aload.d");
+                self->write(self, "aload.d");
 
                 // base_type = type;
                 base_type = field->type;
@@ -505,12 +523,12 @@ void gen_access(Generator *self, const AstAccess *access) {
             case StructType:
                 // TODO: it would be nice to squash successive push
                 // instructions into one
-                self->write_fn("push.d %d", field->offset);
+                self->write(self, "push.d %d", field->offset);
                 base_type = field->type;
                 break;
             case PrimitiveType:
                 assert(i == access->fields.len-1);
-                self->write_fn("push.d %d", field->offset);
+                self->write(self, "push.d %d", field->offset);
                 break;
             case UnknownType:
                 panic("unimplemented");
@@ -529,8 +547,8 @@ void gen_access(Generator *self, const AstAccess *access) {
             base_type = type_dereference(base_type);
             assert(base_type != nullptr);
 
-            self->write_fn("push.d %d", base_type->layout.size);
-            self->write_fn("mul.d");
+            self->write(self, "push.d %d", base_type->layout.size);
+            self->write(self, "mul.d");
 
 
             // There's a chance that the dereferenced type
@@ -551,7 +569,7 @@ void gen_access(Generator *self, const AstAccess *access) {
                 // will be tedious as in pretty much all instances except
                 // this the AstNode is sufficient
                 node.type = *base_type;
-                self->write_fn("aload%s", op_ext(self, &node));
+                self->write(self, "aload%s", op_ext(self, &node));
             }
 
             break;
@@ -565,7 +583,7 @@ void gen_access(Generator *self, const AstAccess *access) {
 
 void gen_expr_access(Generator *self, const AstAccess *access) {
     gen_access(self, access);
-    self->write_fn("aload%s", op_ext(self, &access->node));
+    self->write(self, "aload%s", op_ext(self, &access->node));
 }
 
 void gen_unary_op(Generator *self, const AstUnaryOp *unary_op) {
@@ -580,14 +598,14 @@ void gen_value(Generator *self, const AstValue *value) {
     switch (value->kind) {
     case ValueString:
         int label = self->string++;
-        self->write_fn(".data s%d .string \"%.*s\\0\"", label, STRING_FMT_ARGS(&value->as.string));
-        self->write_fn("dataptr s%d", label);
+        self->write(self, ".data s%d .string \"%.*s\\0\"", label, STRING_FMT_ARGS(&value->as.string));
+        self->write(self, "dataptr s%d", label);
         break;
     case ValueChar:
-        self->write_fn("push%s %d", op_ext(self, &value->node), value->as.char_);
+        self->write(self, "push%s %d", op_ext(self, &value->node), value->as.char_);
         break;
     case ValueNumber:
-        self->write_fn("push%s %ld", op_ext(self, &value->node), value->as.number);
+        self->write(self, "push%s %ld", op_ext(self, &value->node), value->as.number);
     }
 }
 
@@ -595,7 +613,7 @@ void gen_ident(Generator *self, const AstIdent *ident) {
     i32 local = find_variable(self->variables, &ident->name);
     assert(local != -1);
 
-    self->write_fn("load%s %d", op_ext(self, &ident->node), local);
+    self->write(self, "load%s %d", op_ext(self, &ident->node), local);
 }
 
 void gen_call(Generator *self, const AstCall *call) {
@@ -610,8 +628,8 @@ void gen_call(Generator *self, const AstCall *call) {
     // Alternatively could store each expression in
     // a local and push before using a regular
     // call. calln seems nicer for now though.
-    self->write_fn("push.d %.*s", STRING_FMT_ARGS(&call->name));
-    self->write_fn("calln %d", nslots);
+    self->write(self, "push.d %.*s", STRING_FMT_ARGS(&call->name));
+    self->write(self, "calln %d", nslots);
 }
 
 i32 next_local(Generator *self, const AstNode *node) {

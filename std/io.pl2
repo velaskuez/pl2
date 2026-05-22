@@ -1,0 +1,33 @@
+fn open(path *i8) i32 {
+    @output("");
+
+    return 0;
+}
+
+fn read(fd i32, buf *i8, length i64) i32 {
+    @output("");
+
+    return 0;
+}
+
+fn write(fd i32, buf *i8, length i64) i32 {
+    @output("");
+
+    return 0;
+}
+
+fn print(message *i8) i32 {
+    // let size = strlen(message);
+    let size = 0;
+
+@output("
+push 1 ; stdout
+load.d 0
+load.d 2
+push 4 ; write
+system
+ret.w
+; unreachable: ")
+
+    return 0;
+}

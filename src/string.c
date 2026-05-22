@@ -6,6 +6,7 @@
 
 #include "array.h"
 #include "str.h"
+#include "int.h"
 
 String string_from_file(int fd) {
     off_t size = lseek(fd, 0, SEEK_END);
@@ -69,8 +70,9 @@ void string_append_cstr(String *s, const char *t) {
 String string_trim(const String *s) {
     String t = *s;
 
-    for(size_t i = 0; i < t.len && isspace(t.items[i]); i++, t.items++, t.len--);
-    for(size_t i = t.len-1; i > 0 && isspace(t.items[i]); i--, t.len--);
+    for(u64 i = 0; i < t.len && isspace(t.items[i]); i++, t.items++, t.len--);
+    if (t.len == 0) return t;
+    for(u64 i = t.len-1; i > 0 && isspace(t.items[i]); i--, t.len--);
 
     return t;
 }
