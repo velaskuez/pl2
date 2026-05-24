@@ -111,9 +111,9 @@ AstFile parse_file(Parser *self) {
         } else if (at(self, KeywordStruct)) {
             AstStruct struct_ = parse_struct(self);
             append(&file.structs, struct_);
-        } else if (at(self, KeywordInclude)) {
-            AstInclude include = parse_include(self);
-            append(&file.includes, include);
+        // } else if (at(self, KeywordInclude)) {
+        //     AstInclude include = parse_include(self);
+        //     append(&file.includes, include);
         } else {
             report_unexpected_token_error(self);
             break;
