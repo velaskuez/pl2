@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "ast.h"
 #include "parse.h"
@@ -17,43 +18,25 @@ typedef struct {
     int dependency;
 } Options;
 
-Options parse_options(int argc, char** argv) {
+Options parse_options(int argc, char **argv) {
     Options options = {0};
 
-    int i = 1;
-    for (;;) {
-        char *arg = argv[i++];
-        if (arg == nullptr) {
+    int opt = 0;
+    while ((opt = getopt(argc, argv, "i:o::d")) != -1) {
+        switch (opt) {
+        case 'i':
+            options.input = optarg;
             break;
-        }
-
-        if (strcmp(arg, "-i") == 0) {
-            if (options.input != nullptr) {
-                fprintf(stderr, "cannot define -i more than once\n");
-                exit(1);
-            }
-
-            options.input = argv[i++];
-            if (options.input == nullptr) {
-                fprintf(stderr, "must supply -i with a path\n");
-                exit(1);
-            }
-
-        } else if (strcmp(arg, "-o") == 0) {
-            if (options.output != nullptr) {
-                fprintf(stderr, "cannot define -o more than once\n");
-                exit(1);
-            }
-
-            options.output = argv[i++];
-            if (options.output == nullptr) {
-                fprintf(stderr, "must supply -o with a path\n");
-                exit(1);
-            }
-        } else if (strcmp(arg, "-d") == 0) {
+        case 'o':
+            options.output = optarg;
+            break;
+        case 'd':
             options.dependency = 1;
-        } else {
-            fprintf(stderr, "unknown argument: %s\n", arg);
+            break;
+        case '?':
+        default:
+            // TODO: usage()
+            fprintf(stderr, "unknown argument: %c\n", opt);
             exit(1);
         }
     }
