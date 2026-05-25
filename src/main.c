@@ -17,27 +17,12 @@ typedef struct {
     int dependency;
 } Options;
 
-typedef struct {
-    int position;
-    int argc;
-    char **argv;
-} Args;
-
-char *next_arg(Args *args) {
-    if (args->argc == 0 || args->position == args->argc) return nullptr;
-    return args->argv[args->position++];
-}
-
 Options parse_options(int argc, char** argv) {
-    Args args = {0};
-    args.argc = argc;
-    args.argv = argv;
-
-    next_arg(&args);
-
     Options options = {0};
+
+    int i = 1;
     for (;;) {
-        char *arg = next_arg(&args);
+        char *arg = argv[i++];
         if (arg == nullptr) {
             break;
         }
@@ -48,7 +33,7 @@ Options parse_options(int argc, char** argv) {
                 exit(1);
             }
 
-            options.input = next_arg(&args);
+            options.input = argv[i++];
             if (options.input == nullptr) {
                 fprintf(stderr, "must supply -i with a path\n");
                 exit(1);
@@ -60,7 +45,7 @@ Options parse_options(int argc, char** argv) {
                 exit(1);
             }
 
-            options.output = next_arg(&args);
+            options.output = argv[i++];
             if (options.output == nullptr) {
                 fprintf(stderr, "must supply -o with a path\n");
                 exit(1);
