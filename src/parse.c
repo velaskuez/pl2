@@ -250,7 +250,7 @@ AstCast parse_cast(Parser *self) {
     cast.type_expr = parse_type_expr(self);
     expect(self, TokenRParen);
 
-    cast.expr = box(parse_expr(self, 0));
+    cast.expr = box(parse_expr(self, 1000));
 
     return cast;
 }
