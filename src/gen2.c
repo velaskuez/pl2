@@ -115,9 +115,6 @@ void gen_file(Generator *self, const AstFile *file) {
         while ((n = read(fd, buf, 4096)) > 0) {
             write(self->fd, buf, n);
         }
-
-        // off_t len = 0;
-        // sendfile(self->fd, fd, 0, &len, nullptr, 0);
     }
 
     foreach(function, &file->functions) {

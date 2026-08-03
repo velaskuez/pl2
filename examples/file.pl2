@@ -47,8 +47,6 @@ fn print(string *i8) i32 {
     return 0;
 }
 
-// FIXME: no return type -> function returns value -> assertion error
-
 fn open(filepath *i8, flags i32, mode i32) i32 {
     let len = strlen(filepath); // local = 4
 

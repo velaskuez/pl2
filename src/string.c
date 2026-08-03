@@ -45,8 +45,7 @@ String string_from_file(int fd) {
 String string_from_cstr(char *s) {
     String t = {0};
     t.cap = t.len = strlen(s);
-    t.items = malloc(t.len);
-    memcpy(t.items, s, t.len);
+    t.items = strdup(s);
     return t;
 }
 
